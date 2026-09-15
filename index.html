@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<script>
+  // Apply saved theme immediately, before CSS/paint, so there's no flash of the wrong theme
+  (function(){
+    try {
+      var saved = localStorage.getItem('theme');
+      if(saved === 'light' || saved === 'dark'){
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch(e) {}
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kent Kerby Mahipos — Portfolio</title>
+<meta name="description" content="Portfolio of Kent Kerby Mahipos, a BSIT student at Laguna State Polytechnic University and aspiring Full Stack Web Developer. Explore his projects, skills, and background.">
+
+<!-- Canonical URL: tells Google which URL is the "real" one, avoids duplicate-content confusion -->
+<link rel="canonical" href="https://kentkerby.github.io/">
+
+<!-- Favicon: reuses the site's own <K/> bracket mark, no extra image file needed -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2310171A'/%3E%3Ctext x='32' y='43' font-family='monospace' font-size='30' font-weight='800' fill='%23C17F45' text-anchor='middle'%3EK%3C/text%3E%3C/svg%3E">
+
+<!-- Open Graph / Facebook & Messenger link preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Kent Kerby Mahipos — Portfolio">
+<meta property="og:description" content="Aspiring Full Stack Web Developer. BSIT student at Laguna State Polytechnic University. See my projects, skills, and background.">
+<meta property="og:image" content="https://kentkerby.github.io/assets/img/kerby.jpg">
+<meta property="og:url" content="https://kentkerby.github.io/">
+
+<!-- Twitter/X card (some apps also read this) -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kent Kerby Mahipos — Portfolio">
+<meta name="twitter:description" content="Aspiring Full Stack Web Developer. BSIT student at Laguna State Polytechnic University.">
+<meta name="twitter:image" content="https://kentkerby.github.io/assets/img/kerby.jpg">
+
+<!-- Structured data: tells Google this page is about a specific person -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Kent Kerby Mahipos",
+  "jobTitle": "Aspiring Full Stack Web Developer",
+  "url": "https://kentkerby.github.io/",
+  "image": "https://kentkerby.github.io/assets/img/kerby.jpg",
+  "sameAs": [
+    "https://www.facebook.com/share/19LzSAJg8W/?mibextid=wwXIfr",
+    "https://www.instagram.com/justk3rbs_"
+  ],
+  "email": "mailto:kentkerbyyy@gmail.com",
+  "alumniOf": "Laguna State Polytechnic University"
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-0M6BDPG0BV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-0M6BDPG0BV');
+</script>
+
+</head>
+<body class="loading">
+
+<!-- ================= Background: shooting stars ================= -->
+<div class="bg-stars" aria-hidden="true">
+  <span class="shooting-star s1"></span>
+  <span class="shooting-star s2"></span>
+  <span class="shooting-star s3"></span>
+  <span class="shooting-star s4"></span>
+  <span class="shooting-star s5"></span>
+  <span class="shooting-star s6"></span>
+  <span class="shooting-star s7"></span>
+  <span class="shooting-star s8"></span>
+  <span class="shooting-star s9"></span>
+  <span class="shooting-star s10"></span>
+  <span class="shooting-star s11"></span>
+  <span class="shooting-star s12"></span>
+  <span class="shooting-star s13"></span>
+  <span class="shooting-star s14"></span>
+  <span class="shooting-star s15"></span>
+  <span class="shooting-star s16"></span>
+  <span class="shooting-star s17"></span>
+  <span class="shooting-star s18"></span>
+</div>
+
+<!-- ================= Loading screen ================= -->
+<div class="loader-screen" id="loaderScreen">
+  <div class="loader-content">
+    <div class="loader-name mono">𝕂𝕖𝕣𝕓𝕤</div>
+    <div class="loader-bar"><div class="loader-bar-fill" id="loaderBarFill"></div></div>
+    <div class="loader-status mono" id="loaderStatus">loading...</div>
+  </div>
+</div>
+
+<!-- ================= Header ================= -->
+<header>
+  <div class="nav">
+    <a href="#top" class="logo"><span class="bracket">&lt;</span>Kerby<span class="bracket">/&gt;</span></a>
+    <nav class="navlinks" id="navlinks">
+      <a href="#about">About</a>
+      <a href="#skills">What I Use</a>
+      <a href="#projects">Projects</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div class="navright">
+      <button type="button" class="themebtn" id="themeToggle" aria-label="Toggle light and dark mode">
+        <span class="knob">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4.5"/>
+            <path d="M12 2.5v3M12 18.5v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a.6.6 0 0 0-.8-.7A9.5 9.5 0 1 0 21.2 15.3a.6.6 0 0 0-.7-.8Z"/>
+          </svg>
+        </span>
+      </button>
+      <button type="button" class="navtoggle" id="navToggle" aria-label="Open menu">☰</button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= Hero ================= -->
+<div class="intro-center" id="introCenter" aria-hidden="true">
+  <div class="intro-inner" id="introInner">
+    <h1 class="name">Kent Kerby<br>Mahipos</h1>
+    <p class="role">Aspiring Full Stack Web Developer</p>
+  </div>
+</div>
+
+<div class="wrap" id="top">
+  <div class="hero-scroll" id="heroScroll">
+    <section class="hero" id="heroSection" style="border-top:none;">
+      <div class="hero-text">
+        <div class="hero-heading" id="heroHeading">
+          <h1 class="name">Kent Kerby<br>Mahipos</h1>
+          <p class="role">Aspiring Full Stack Web Developer</p>
+        </div>
+        <p class="bio reveal-item" data-d="0">I am a second-year Information Technology student at Laguna State Polytechnic University (LSPU), committed to developing my technical skills and gaining knowledge in the field of information technology.</p>
+        <div class="cta-row reveal-item" data-d="1">
+          <a href="#projects" class="btn btn-solid">View Projects</a>
+          <a href="#contact" class="btn btn-outline">Get in Touch</a>
+        </div>
+        <div class="social-row reveal-item" data-d="2">
+          <a href="mailto:kentkerbyyy@gmail.com" aria-label="Email" title="Email">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          </a>
+          <a href="https://www.facebook.com/share/19LzSAJg8W/?mibextid=wwXIfr" target="_blank" rel="noopener" aria-label="Facebook" title="Facebook">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 8h2V5h-2a4 4 0 0 0-4 4v2H9v3h2v7h3v-7h2.2l.8-3H14V9a1 1 0 0 1 1-1Z"/></svg>
+          </a>
+          <a href="https://www.instagram.com/justk3rbs_" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="photo-frame reveal-item" data-d="1">
+        <div class="photo-tilt" id="photoTilt">
+          <img src="assets/img/kerby.jpg" alt="Kent Kerby Mahipos">
+        </div>
+        <div class="photo-tag"><span>Hello!</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="wrap">
+  <!-- ================= About ================= -->
+  <section id="about">
+    <div class="section-head scroll-reveal">
+      <p class="section-num mono">01</p>
+      <h2>About</h2>
+    </div>
+    <div class="about-grid">
+      <div class="about-text scroll-reveal">
+        <p>I am a second-year Bachelor of Science in Information Technology (BSIT) student at Laguna State Polytechnic University (LSPU) with a strong interest in web development and a goal of becoming a Full-Stack Web Developer. I am continuously developing my knowledge and technical skills in programming, web technologies, and software development through academic projects and hands-on learning.</p>
+        <p>I am committed to continuously improving my skills, gaining practical experience, and building a strong foundation in the field of Information Technology.</p>
+
+        <div class="edu-timeline">
+          <div class="edu-item">
+            <div class="edu-dot"></div>
+            <p class="edu-level mono">Elementary</p>
+            <p class="edu-school">Alumbrado Elementary School</p>
+          </div>
+          <div class="edu-item">
+            <div class="edu-dot"></div>
+            <p class="edu-level mono">Secondary</p>
+            <p class="edu-school">Cristobal S. Conducto Memorial Integrated National High School</p>
+          </div>
+          <div class="edu-item">
+            <div class="edu-dot"></div>
+            <p class="edu-level mono">College</p>
+            <p class="edu-school">Laguna State Polytechnic University</p>
+          </div>
+        </div>
+      </div>
+      <div class="sysinfo scroll-reveal">
+        <div class="sysinfo-titlebar">
+          <div class="sysinfo-dots"><span></span><span></span><span></span></div>
+          <span class="sysinfo-filename mono">kerby.info</span>
+        </div>
+        <div class="sysinfo-body">
+        <div class="row"><span class="k">school</span><span class="v">Laguna State Polytechnic University</span></div>
+        <div class="row"><span class="k">campus</span><span class="v">San Pablo City</span></div>
+        <div class="row"><span class="k">program</span><span class="v">BS Information Technology</span></div>
+        <div class="row"><span class="k">focus</span><span class="v">Web Development</span></div>
+        <div class="row"><span class="k">editor</span><span class="v">VS Code</span></div>
+        <div class="row"><span class="k">hobby</span><span class="v">Playing Billiards</span></div>
+        <div class="row last-row">
+          <span class="k">address</span><span class="v">Brgy. Sulsuguin, Nagcarlan, Laguna<span class="sysinfo-caret"></span></span>
+        </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Skills ================= -->
+  <section id="skills">
+    <div class="section-head scroll-reveal">
+      <p class="section-num mono">02</p>
+      <h2>What I Use</h2>
+    </div>
+    <div class="skills-marquee">
+      <div class="skills-track" id="skillsTrack"></div>
+    </div>
+  </section>
+
+  <!-- ================= Projects ================= -->
+  <section id="projects">
+    <div class="section-head scroll-reveal">
+      <p class="section-num mono">03</p>
+      <h2>Projects</h2>
+    </div>
+    <div class="proj-grid">
+
+      <div class="proj-card scroll-reveal" style="transition-delay:0s">
+        <svg class="proj-icon" viewBox="0 0 48 48" fill="none" stroke="var(--copper)" stroke-width="1.6">
+          <path d="M24 42V22" stroke-linecap="round"/>
+          <path d="M24 22c0-7-6-11-13-11 0 7 6 11 13 11Z"/>
+          <path d="M24 26c0-6 6-9 12-9 0 6-6 9-12 9Z"/>
+          <circle cx="24" cy="42" r="2.2" fill="var(--copper)" stroke="none"/>
+          <path d="M13 33h4M31 35h4" stroke="var(--teal)" stroke-linecap="round"/>
+          <circle cx="13" cy="33" r="1.4" fill="var(--teal)" stroke="none"/>
+          <circle cx="35" cy="35" r="1.4" fill="var(--teal)" stroke="none"/>
+        </svg>
+        <h3>Automated Plant Fertilizing System</h3>
+        <p>A Grade 12 STEM research project that automates fertilizer management for Brassica rapa using NPK sensors and an Arduino-based system.</p>
+        <div class="tag-row">
+          <span class="tag">Arduino</span>
+          <span class="tag">NPK Sensors</span>
+          <span class="tag">Arduino IDE</span>
+        </div>
+        <button type="button" class="seemore-btn" data-project="plant">See More</button>
+      </div>
+
+      <div class="proj-card scroll-reveal" style="transition-delay:.08s">
+        <svg class="proj-icon" viewBox="0 0 48 48" fill="none" stroke="var(--copper)" stroke-width="1.6">
+          <circle cx="20" cy="24" r="10"/>
+          <circle cx="20" cy="24" r="3" fill="var(--copper)" stroke="none"/>
+          <path d="M20 14v-4M20 38v-4M10 24H6M34 24h-4" stroke-linecap="round"/>
+          <path d="M30 18h9v12h-9" stroke="var(--teal)" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M33 24h5" stroke="var(--teal)" stroke-linecap="round"/>
+        </svg>
+        <h3>DC Motor Control</h3>
+        <p>A Grade 12 Physics project demonstrating electromagnetism and magnetic force through a simple motor mechanism using a dynamo, magnets, and steel to produce rotational motion.</p>
+        <div class="tag-row">
+          <span class="tag">Dynamo</span>
+          <span class="tag">Magnet</span>
+          <span class="tag">Steel Component</span>
+        </div>
+        <button type="button" class="seemore-btn" data-project="motor">See More</button>
+      </div>
+
+      <div class="proj-card scroll-reveal" style="transition-delay:.16s">
+        <a href="Simple ATM System/ATM.html" target="_blank" class="card-demo-badge" aria-label="Open Simple ATM System live demo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          Live Demo
+        </a>
+        <div class="proj-thumb mono">
+          <div class="pt-titlebar">
+            <span class="pt-dot r"></span><span class="pt-dot y"></span><span class="pt-dot g"></span>
+            <span class="pt-name">atm-system</span>
+          </div>
+          <div class="pt-body">
+            <div class="pt-accent">=== Simple ATM System ===</div>
+            <div class="pt-muted">Please enter your PIN to continue.</div>
+            <div class="pt-warn">Demo PIN: 1234 | Starting balance: PHP 5,000.00</div>
+          </div>
+        </div>
+        <h3>Simple ATM System</h3>
+        <p>A console-based ATM simulation with login, balance inquiry, deposit, and withdrawal, written to practice object-oriented design and input validation.</p>
+        <div class="tag-row">
+          <span class="tag">C#</span>
+          <span class="tag">OOP</span>
+          <span class="tag">.NET</span>
+        </div>
+        <button type="button" class="seemore-btn" data-project="atm">See More</button>
+      </div>
+
+      <div class="proj-card scroll-reveal" style="transition-delay:.24s">
+        <a href="Simple Calculator System/Calculator.html" target="_blank" class="card-demo-badge" aria-label="Open Simple Calculator live demo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          Live Demo
+        </a>
+        <div class="proj-thumb mono">
+          <div class="pt-titlebar">
+            <span class="pt-dot r"></span><span class="pt-dot y"></span><span class="pt-dot g"></span>
+            <span class="pt-name">calculator</span>
+          </div>
+          <div class="pt-body">
+            <div class="pt-accent">=== Simple Calculator ===</div>
+            <div class="pt-muted">Choose an operation to begin.</div>
+          </div>
+        </div>
+        <h3>Simple Calculator</h3>
+        <p>A C# calculator application designed to perform basic arithmetic operations with simple input validation.</p>
+        <div class="tag-row">
+          <span class="tag">C#</span>
+          <span class="tag">OOP</span>
+          <span class="tag">.NET</span>
+        </div>
+        <button type="button" class="seemore-btn" data-project="calculator">See More</button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= Contact ================= -->
+  <section id="contact">
+    <div class="section-head scroll-reveal">
+      <p class="section-num mono">04</p>
+      <h2>Contact</h2>
+    </div>
+    <div class="contact-panel scroll-reveal">
+      <div>
+        <h2 style="font-size:22px;">Let's build something.</h2>
+        <p>Open to student projects, on-the-job training opportunities, and anyone who wants to talk shop about code. Reach out through any of these.</p>
+      </div>
+      <div class="contact-links">
+        <a href="mailto:kentkerbyyy@gmail.com">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          kentkerbyyy@gmail.com
+        </a>
+        <a href="https://www.facebook.com/share/19LzSAJg8W/?mibextid=wwXIfr" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 8h2V5h-2a4 4 0 0 0-4 4v2H9v3h2v7h3v-7h2.2l.8-3H14V9a1 1 0 0 1 1-1Z"/></svg>
+          Facebook
+        </a>
+        <a href="https://www.instagram.com/justk3rbs_" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+          @justk3rbs_
+        </a>
+      </div>
+    </div>
+
+    <form class="contact-form scroll-reveal" id="contactForm" action="https://formspree.io/f/mrpgwega" method="POST">
+      <div class="form-row">
+        <label for="cfName">Name</label>
+        <input type="text" id="cfName" name="name" placeholder="Your name" required>
+      </div>
+      <div class="form-row">
+        <label for="cfContact">Your Email or Phone Number</label>
+        <input type="text" id="cfContact" name="contact" placeholder="Example@gmail.com or 09XXXXXXXXX" required>
+      </div>
+      <div class="form-row">
+        <label for="cfMessage">Message</label>
+        <textarea id="cfMessage" name="message" rows="5" placeholder="Your message" required></textarea>
+      </div>
+      <button type="submit" class="btn btn-solid" id="cfSubmit">Send Message</button>
+      <p class="form-status" id="cfStatus"></p>
+    </form>
+  </section>
+</div>
+
+<!-- ================= Footer ================= -->
+<footer>
+  <div class="wrap">© 2026 Kent Kerby Mahipos</div>
+</footer>
+
+<!-- ================= Project modal ================= -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-panel">
+    <button type="button" class="modal-close" id="modalClose" aria-label="Close">✕</button>
+    <div id="modalIcon"></div>
+    <h3 id="modalTitle"></h3>
+    <p class="modal-label">Overview</p>
+    <p id="modalOverview"></p>
+    <p class="modal-label">Tech Stack</p>
+    <div class="modal-tags" id="modalTags"></div>
+    <p class="modal-label" id="modalHowToLabel" style="display:none;">How to Try It</p>
+    <ol class="modal-howto" id="modalHowTo" style="display:none;"></ol>
+    <a href="#" id="modalDemoLink" class="btn btn-solid modal-demo-link" target="_blank">Open Live Demo</a>
+  </div>
+</div>
+
+<!-- ================= Custom cursor ================= -->
+<div class="cursor-glow"></div>
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
+<div class="skill-tooltip" id="skillTooltip"></div>
+
+<!-- ================= Cursor-following project previews ================= -->
+<div class="card-preview mono" id="previewAtm">
+  <div class="cp-titlebar">
+    <span class="cp-dot r"></span><span class="cp-dot y"></span><span class="cp-dot g"></span>
+    <span class="cp-name">atm-system</span>
+  </div>
+  <div class="cp-body">
+    <div class="cp-accent">=== Simple ATM System ===</div>
+    <div class="cp-muted">Please enter your PIN to continue.</div>
+  </div>
+  <div class="cp-row">
+    <span class="cp-chip">Login</span>
+    <span class="cp-chip">Balance</span>
+    <span class="cp-chip">Deposit</span>
+    <span class="cp-chip">Withdraw</span>
+  </div>
+</div>
+
+<div class="card-preview mono" id="previewCalculator">
+  <div class="cp-titlebar">
+    <span class="cp-dot r"></span><span class="cp-dot y"></span><span class="cp-dot g"></span>
+    <span class="cp-name">calculator</span>
+  </div>
+  <div class="cp-body">
+    <div class="cp-accent">==== Simple Calculator ====</div>
+    <div class="cp-muted">Choose an operation to begin.</div>
+  </div>
+  <div class="cp-row">
+    <span class="cp-chip">Add</span>
+    <span class="cp-chip">Subtract</span>
+    <span class="cp-chip">Multiply</span>
+    <span class="cp-chip" style="flex-basis:100%;">Divide</span>
+  </div>
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
