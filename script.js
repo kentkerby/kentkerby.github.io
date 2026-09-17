@@ -1,15 +1,10 @@
-/* ==========================================================================
-   Loading screen: fake progress bar, held for a minimum time, then
-   fades out once the page has fully loaded.
-   ========================================================================== */
+// Loading screen
 (function () {
   const loaderScreen = document.getElementById('loaderScreen');
   const loaderBarFill = document.getElementById('loaderBarFill');
   const loaderStatus = document.getElementById('loaderStatus');
 
-  // Skip the loading screen only when arriving here via a project's
-  // "back to portfolio" link (marked with ?fromdemo=1). A normal visit,
-  // refresh, or direct link still gets the full loading effect.
+  // Skip loading screen when arriving via ?fromdemo=1
   const params = new URLSearchParams(window.location.search);
   if (params.get('fromdemo') === '1') {
     document.body.classList.remove('loading');
@@ -54,15 +49,7 @@
   }
 })();
 
-/* ==========================================================================
-   Name heading: types out letter by letter. The character currently
-   under the "cursor" flashes the theme's teal accent, then reverts once
-   the cursor moves on. Once fully typed it erases and loops.
-
-   Characters are rendered up front and only toggled via opacity, so the
-   heading's box size never changes — keeps the hero scroll-transition
-   math (below) stable.
-   ========================================================================== */
+// Name heading: typing effect
 (function () {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const nameEls = document.querySelectorAll('#heroHeading h1.name');
@@ -117,11 +104,7 @@
   });
 })();
 
-/* ==========================================================================
-   Hero intro transition: a fixed, dead-centered "name + role" crossfades
-   out while the real in-place heading (no position math needed) fades in,
-   followed by the rest of the hero content.
-   ========================================================================== */
+// Hero intro transition
 (function () {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isMobile = window.matchMedia('(max-width:820px)').matches;
@@ -141,9 +124,7 @@
   // CSS fallback (prefers-reduced-motion / max-width:820px) handles the static state
   if (reduceMotion || isMobile) return;
 
-  // Live delta between the centered intro text and where the real heading
-  // sits, so the intro can slide (not just fade) into place. Recomputed on
-  // load/resize so it stays correct at any screen size.
+  // Delta between intro text and real heading position
   let dx = 0, dy = 0;
   function recomputeDelta() {
     if (!introInner) return;
@@ -216,9 +197,7 @@
   window.addEventListener('load', onResize);
 })();
 
-/* ==========================================================================
-   Theme toggle: dark/light, persisted to localStorage
-   ========================================================================== */
+// Theme toggle
 (function () {
   const themeToggle = document.getElementById('themeToggle');
   const root = document.documentElement;
@@ -231,10 +210,7 @@
   });
 })();
 
-/* ==========================================================================
-   Scroll-reveal: fade + slide-up each section (and project card) once
-   it enters the viewport.
-   ========================================================================== */
+// Scroll reveal
 (function () {
   const revealEls = document.querySelectorAll('.scroll-reveal');
   if (!revealEls.length) return;
@@ -258,12 +234,7 @@
   revealEls.forEach((el) => observer.observe(el));
 })();
 
-/* ==========================================================================
-   Scrollspy: highlight the nav link for whichever section is in view.
-   Uses "which section's top has most recently crossed just below the
-   header" instead of a mid-viewport band, so short sections (like Skills)
-   aren't skipped over.
-   ========================================================================== */
+// Scrollspy
 (function () {
   const sections = Array.from(document.querySelectorAll('#about, #skills, #projects, #contact'));
   const navLinks = document.querySelectorAll('.navlinks a');
@@ -312,9 +283,7 @@
   updateActiveSection();
 })();
 
-/* ==========================================================================
-   Mobile nav toggle
-   ========================================================================== */
+// Mobile nav toggle
 (function () {
   const navToggle = document.getElementById('navToggle');
   const navlinks = document.getElementById('navlinks');
@@ -322,11 +291,7 @@
   navlinks.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => navlinks.classList.remove('open')));
 })();
 
-/* ==========================================================================
-   Skills marquee: builds cards with each skill's logo, duplicated once
-   for a seamless scrolling loop. Logo files must sit alongside index.html
-   at the paths listed below.
-   ========================================================================== */
+// Skills marquee
 (function () {
   const skillIcons = {
     'C#': 'assets/logos/csharp.png',
@@ -415,9 +380,7 @@
   }
 })();
 
-/* ==========================================================================
-   Project modal: "See more" opens a panel with the full overview and tags
-   ========================================================================== */
+// Project modal
 (function () {
   const projectData = {
     plant: {
@@ -509,9 +472,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 })();
 
-/* ==========================================================================
-   Project cards: cursor-following preview for projects with a live demo
-   ========================================================================== */
+// Cursor-following project preview
 (function () {
   if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
 
@@ -524,15 +485,7 @@
     Object.values(previewMap).forEach((p) => p && p.classList.remove('show'));
   }
 
-  // After this tab is hidden/unfocused (e.g. Live Demo opened in a new tab,
-  // then closed), the mouse is usually still resting on the exact same
-  // screen spot when this tab comes back — and browsers can re-fire more
-  // than one mousemove/hover-recalculation event at that same position with
-  // no real movement involved. A single "ignore the next move" flag isn't
-  // enough if more than one of those phantom events fires. Instead, once
-  // suppressed, keep ignoring any mousemove that lands within a few pixels
-  // of where we were when we suppressed — only a genuine move away from
-  // that spot lifts it and lets the preview show again.
+  // Ignore phantom mousemove events after tab refocus
   const STILL_THRESHOLD = 6; // px
   let suppressed = false;
   let suppressOrigin = null; // {x, y} — last known real position when suppression began
@@ -579,11 +532,7 @@
     });
     card.addEventListener('mouseleave', () => preview.classList.remove('show'));
 
-    // "Live Demo" opens a new tab, so the mouse never actually leaves the
-    // card — it just loses focus to the new tab. Without this, the preview
-    // stays stuck open when you switch back. Hide it the moment any link in
-    // the card is clicked (using the click position as the suppression
-    // origin), and again whenever this tab loses focus/visibility.
+    // Hide preview when a demo link is clicked or tab loses focus
     card.querySelectorAll('a').forEach((link) => {
       link.addEventListener('click', (e) => {
         hideAllPreviews();
@@ -606,13 +555,7 @@
   });
   window.addEventListener('pageshow', () => { hideAllPreviews(); suppress(null); });
 
-  // Exposed so a demo tab (opened via window.open from this page) can tell
-  // this page directly to hide+suppress the preview the moment it closes
-  // itself, rather than relying only on focus/blur timing. Also blurs
-  // whatever is currently focused (normally the "Live Demo" badge that was
-  // clicked) — its CSS shows on :focus-within too, so without this it stays
-  // visibly "stuck" open even after the mouse has moved away, since clicking
-  // a link keeps it focused regardless of which tab is active.
+  // Lets a demo tab tell this page to hide the preview when it closes
   window.hidePortfolioPreviews = () => {
     hideAllPreviews();
     suppress(null);
@@ -622,13 +565,7 @@
   };
 })();
 
-/* ==========================================================================
-   Live Demo links: open via window.open() (not a plain link navigation) so
-   the resulting tab counts as "opened by script". That's what lets the demo
-   page's "back to portfolio" link close itself and refocus this tab instead
-   of opening a second portfolio tab — browsers block window.close() on tabs
-   that weren't opened this way.
-   ========================================================================== */
+// Live Demo links: open via window.open() so the demo tab can self-close
 (function () {
   document.querySelectorAll('.card-demo-badge, #modalDemoLink').forEach((link) => {
     link.addEventListener('click', (e) => {
@@ -640,11 +577,7 @@
   });
 })();
 
-/* ==========================================================================
-   Contact form: submits to Formspree via fetch so the page never reloads.
-   Set the real Formspree endpoint in index.html's <form action="..."> for
-   this to work.
-   ========================================================================== */
+// Contact form: submits to Formspree via fetch
 (function () {
   const form = document.getElementById('contactForm');
   if (!form) return;
@@ -690,9 +623,7 @@
   });
 })();
 
-/* ==========================================================================
-   Custom cursor: dot follows instantly, ring + glow trail with easing
-   ========================================================================== */
+// Custom cursor
 (function () {
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
 
@@ -733,9 +664,7 @@
   });
 })();
 
-/* ==========================================================================
-   Hero photo tilt: subtle 3D tilt toward the cursor, desktop only
-   ========================================================================== */
+// Hero photo tilt
 (function () {
   const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -749,9 +678,7 @@
   let targetX = 0, targetY = 0;
   let curX = 0, curY = 0;
 
-  // Listen on the whole frame (not just the image) so the tilt still
-  // responds near the edges/padding, independent of the frame's own
-  // scroll-entrance transform (handled separately via .reveal-item).
+  // Listen on the whole frame so tilt responds near the edges
   photoFrame.addEventListener('mousemove', (e) => {
     const rect = photoFrame.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
