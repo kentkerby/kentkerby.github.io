@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://kentkerby.github.io/sitemap.xml
+Sitemap: https://kentkerby.me/sitemap.xml
