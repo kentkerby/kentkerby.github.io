@@ -2,6 +2,12 @@
 <html lang="en" data-theme="dark">
 <head>
 <script>
+  // Redirect the old kentkerby.github.io URL to the custom domain
+  if (location.hostname === 'kentkerby.github.io') {
+    location.replace('https://kentkerby.me' + location.pathname + location.search + location.hash);
+  }
+</script>
+<script>
   // Apply saved theme immediately, before CSS/paint, so there's no flash of the wrong theme
   (function(){
     try {
