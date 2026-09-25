@@ -174,25 +174,32 @@
     });
   }
 
-  let ticking = false;
-  function onScroll() {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => {
-      applyProgress(getProgress());
-      ticking = false;
-    });
+  // Smoothly interpolate toward the scroll-driven target instead of snapping
+  // straight to it every frame — this is what makes the intro glide instead
+  // of jump when the user scrolls fast.
+  let currentP = 0;
+  let targetP = 0;
+  const SMOOTHING = 0.09; // lower = smoother/slower catch-up, higher = snappier
+
+  function raf() {
+    targetP = getProgress();
+    currentP += (targetP - currentP) * SMOOTHING;
+    // Snap once the gap is imperceptible so it doesn't keep animating forever
+    if (Math.abs(targetP - currentP) < 0.0008) currentP = targetP;
+    applyProgress(currentP);
+    requestAnimationFrame(raf);
   }
 
   function onResize() {
     setHeaderHeightVar();
     recomputeDelta();
-    applyProgress(getProgress());
+    applyProgress(currentP);
   }
 
   recomputeDelta();
-  applyProgress(getProgress());
-  window.addEventListener('scroll', onScroll, { passive: true });
+  currentP = getProgress();
+  applyProgress(currentP);
+  requestAnimationFrame(raf);
   window.addEventListener('resize', onResize);
   window.addEventListener('load', onResize);
 })();

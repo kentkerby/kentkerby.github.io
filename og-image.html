@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OG Image Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+  }
+  body {
+    background: #10171A;
+    color: #E7ECE9;
+    font-family: 'Inter', sans-serif;
+    position: relative;
+  }
+
+  /* Main grid layout */
+  .hero {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    padding: 70px 90px;
+    display: grid;
+    grid-template-columns: 1.15fr .85fr;
+    gap: 60px;
+    align-items: center;
+  }
+
+  .hero-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 62px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    color: #E7ECE9;
+    margin-bottom: 18px;
+  }
+
+  .role {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: #C17F45;
+  }
+  .role::before {
+    content: "";
+    display: inline-block;
+    width: 26px;
+    height: 2px;
+    background: #C17F45;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Photo frame */
+  .photo-frame {
+    position: relative;
+    padding: 9px;
+    border: 1px solid #3A4A4F;
+    border-radius: 6px;
+    background: #161F22;
+  }
+  .photo-frame::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 6px;
+    pointer-events: none;
+    box-shadow:
+      0 0 0 1px rgba(62,201,167,.35),
+      0 0 40px -6px rgba(62,201,167,.45);
+  }
+  .photo-frame img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    border-radius: 3px;
+  }
+  .photo-tag {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 10px;
+    padding: 0 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #3EC9A7;
+  }
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="hero-text">
+      <h1>Kent Kerby<br>Mahipos</h1>
+      <p class="role">Aspiring Full Stack Web Developer</p>
+    </div>
+
+    <div class="photo-frame">
+      <img src="assets/img/kerby.jpg" alt="Kent Kerby Mahipos">
+      <div class="photo-tag">Hello!</div>
+    </div>
+  </div>
+</body>
+</html>
