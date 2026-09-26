@@ -68,6 +68,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="projects-spotlight.css">
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0M6BDPG0BV"></script>
 <script>
@@ -248,97 +249,19 @@
       <p class="section-num mono">03</p>
       <h2>Projects</h2>
     </div>
-    <div class="proj-grid">
 
-      <div class="proj-card scroll-reveal" style="transition-delay:0s">
-        <svg class="proj-icon" viewBox="0 0 48 48" fill="none" stroke="var(--copper)" stroke-width="1.6">
-          <path d="M24 42V22" stroke-linecap="round"/>
-          <path d="M24 22c0-7-6-11-13-11 0 7 6 11 13 11Z"/>
-          <path d="M24 26c0-6 6-9 12-9 0 6-6 9-12 9Z"/>
-          <circle cx="24" cy="42" r="2.2" fill="var(--copper)" stroke="none"/>
-          <path d="M13 33h4M31 35h4" stroke="var(--teal)" stroke-linecap="round"/>
-          <circle cx="13" cy="33" r="1.4" fill="var(--teal)" stroke="none"/>
-          <circle cx="35" cy="35" r="1.4" fill="var(--teal)" stroke="none"/>
-        </svg>
-        <h3>Automated Plant Fertilizing System</h3>
-        <p>A Grade 12 STEM research project that automates fertilizer management for Brassica rapa using NPK sensors and an Arduino-based system.</p>
-        <div class="tag-row">
-          <span class="tag">Arduino</span>
-          <span class="tag">NPK Sensors</span>
-          <span class="tag">Arduino IDE</span>
-        </div>
-        <button type="button" class="seemore-btn" data-project="plant">See More</button>
-      </div>
+    <div class="spotlight-viewport scroll-reveal" id="spotlightViewport">
+      <div class="spotlight-track" id="spotlightTrack"></div>
+    </div>
 
-      <div class="proj-card scroll-reveal" style="transition-delay:.08s">
-        <svg class="proj-icon" viewBox="0 0 48 48" fill="none" stroke="var(--copper)" stroke-width="1.6">
-          <circle cx="20" cy="24" r="10"/>
-          <circle cx="20" cy="24" r="3" fill="var(--copper)" stroke="none"/>
-          <path d="M20 14v-4M20 38v-4M10 24H6M34 24h-4" stroke-linecap="round"/>
-          <path d="M30 18h9v12h-9" stroke="var(--teal)" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M33 24h5" stroke="var(--teal)" stroke-linecap="round"/>
-        </svg>
-        <h3>DC Motor Control</h3>
-        <p>A Grade 12 Physics project demonstrating electromagnetism and magnetic force through a simple motor mechanism using a dynamo, magnets, and steel to produce rotational motion.</p>
-        <div class="tag-row">
-          <span class="tag">Dynamo</span>
-          <span class="tag">Magnet</span>
-          <span class="tag">Steel Component</span>
-        </div>
-        <button type="button" class="seemore-btn" data-project="motor">See More</button>
-      </div>
-
-      <div class="proj-card scroll-reveal" style="transition-delay:.16s">
-        <a href="Simple ATM System/ATM.html" target="_blank" class="card-demo-badge" aria-label="Open Simple ATM System live demo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
-          Live Demo
-        </a>
-        <div class="proj-thumb mono">
-          <div class="pt-titlebar">
-            <span class="pt-dot r"></span><span class="pt-dot y"></span><span class="pt-dot g"></span>
-            <span class="pt-name">atm-system</span>
-          </div>
-          <div class="pt-body">
-            <div class="pt-accent">=== Simple ATM System ===</div>
-            <div class="pt-muted">Please enter your PIN to continue.</div>
-            <div class="pt-warn">Demo PIN: 1234 | Starting balance: PHP 5,000.00</div>
-          </div>
-        </div>
-        <h3>Simple ATM System</h3>
-        <p>A console-based ATM simulation with login, balance inquiry, deposit, and withdrawal, written to practice object-oriented design and input validation.</p>
-        <div class="tag-row">
-          <span class="tag">C#</span>
-          <span class="tag">OOP</span>
-          <span class="tag">.NET</span>
-        </div>
-        <button type="button" class="seemore-btn" data-project="atm">See More</button>
-      </div>
-
-      <div class="proj-card scroll-reveal" style="transition-delay:.24s">
-        <a href="Simple Calculator System/Calculator.html" target="_blank" class="card-demo-badge" aria-label="Open Simple Calculator live demo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
-          Live Demo
-        </a>
-        <div class="proj-thumb mono">
-          <div class="pt-titlebar">
-            <span class="pt-dot r"></span><span class="pt-dot y"></span><span class="pt-dot g"></span>
-            <span class="pt-name">calculator</span>
-          </div>
-          <div class="pt-body">
-            <div class="pt-accent">=== Simple Calculator ===</div>
-            <div class="pt-muted">Choose an operation to begin.</div>
-          </div>
-        </div>
-        <h3>Simple Calculator</h3>
-        <p>A C# calculator application designed to perform basic arithmetic operations with simple input validation.</p>
-        <div class="tag-row">
-          <span class="tag">C#</span>
-          <span class="tag">OOP</span>
-          <span class="tag">.NET</span>
-        </div>
-        <button type="button" class="seemore-btn" data-project="calculator">See More</button>
-      </div>
-
+    <div class="spotlight-nav">
+      <button type="button" id="spotlightPrev" aria-label="Previous project">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="spotlight-counter mono" id="spotlightCounter"></span>
+      <button type="button" id="spotlightNext" aria-label="Next project">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
     </div>
   </section>
 
@@ -401,64 +324,14 @@
   </div>
 </footer>
 
-<!-- Project modal -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal-panel">
-    <button type="button" class="modal-close" id="modalClose" aria-label="Close">✕</button>
-    <div id="modalIcon"></div>
-    <h3 id="modalTitle"></h3>
-    <p class="modal-label">Overview</p>
-    <p id="modalOverview"></p>
-    <p class="modal-label">Tech Stack</p>
-    <div class="modal-tags" id="modalTags"></div>
-    <p class="modal-label" id="modalHowToLabel" style="display:none;">How to Try It</p>
-    <ol class="modal-howto" id="modalHowTo" style="display:none;"></ol>
-    <a href="#" id="modalDemoLink" class="btn btn-solid modal-demo-link" target="_blank">Open Live Demo</a>
-  </div>
-</div>
-
 <!-- Custom cursor -->
 <div class="cursor-glow"></div>
 <div class="cursor-dot"></div>
 <div class="cursor-ring"></div>
 <div class="skill-tooltip" id="skillTooltip"></div>
 
-<!-- Cursor-following project previews -->
-<div class="card-preview mono" id="previewAtm">
-  <div class="cp-titlebar">
-    <span class="cp-dot r"></span><span class="cp-dot y"></span><span class="cp-dot g"></span>
-    <span class="cp-name">atm-system</span>
-  </div>
-  <div class="cp-body">
-    <div class="cp-accent">=== Simple ATM System ===</div>
-    <div class="cp-muted">Please enter your PIN to continue.</div>
-  </div>
-  <div class="cp-row">
-    <span class="cp-chip">Login</span>
-    <span class="cp-chip">Balance</span>
-    <span class="cp-chip">Deposit</span>
-    <span class="cp-chip">Withdraw</span>
-  </div>
-</div>
-
-<div class="card-preview mono" id="previewCalculator">
-  <div class="cp-titlebar">
-    <span class="cp-dot r"></span><span class="cp-dot y"></span><span class="cp-dot g"></span>
-    <span class="cp-name">calculator</span>
-  </div>
-  <div class="cp-body">
-    <div class="cp-accent">==== Simple Calculator ====</div>
-    <div class="cp-muted">Choose an operation to begin.</div>
-  </div>
-  <div class="cp-row">
-    <span class="cp-chip">Add</span>
-    <span class="cp-chip">Subtract</span>
-    <span class="cp-chip">Multiply</span>
-    <span class="cp-chip" style="flex-basis:100%;">Divide</span>
-  </div>
-</div>
-
 <script src="script.js"></script>
+<script src="projects-spotlight.js" defer></script>
 
 </body>
 </html>

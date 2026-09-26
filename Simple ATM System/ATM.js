@@ -4,6 +4,12 @@
 (function () {
   const backLink = document.querySelector('.back-link');
   if (!backLink) return;
+  // Embedded inside the portfolio's project spotlight preview — no need
+  // for a back link, and we don't want it navigating the iframe.
+  if (window.self !== window.top) {
+    backLink.style.display = 'none';
+    return;
+  }
   backLink.addEventListener('click', (e) => {
     if (window.opener && !window.opener.closed) {
       e.preventDefault();
