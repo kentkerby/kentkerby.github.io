@@ -1,12 +1,67 @@
 // Loading screen
+// Shows on first load AND every time you come back to this tab after leaving it.
 (function () {
   const loaderScreen = document.getElementById('loaderScreen');
   const loaderBarFill = document.getElementById('loaderBarFill');
   const loaderStatus = document.getElementById('loaderStatus');
 
-  // Skip loading screen when arriving via ?fromdemo=1
   const params = new URLSearchParams(window.location.search);
-  if (params.get('fromdemo') === '1') {
+  const skipFirst = params.get('fromdemo') === '1';
+
+  let busy = !skipFirst;     // true while the loader is on screen
+  let wasHidden = false;
+
+  // Don't let the page scroll behind the loader while it's showing
+  const stop = (e) => { if (busy) e.preventDefault(); };
+  loaderScreen.addEventListener('wheel', stop, { passive: false });
+  loaderScreen.addEventListener('touchmove', stop, { passive: false });
+
+  // ---- Return-to-tab replay ----
+  const REPLAY_MS = 1200;
+
+  function replayLoader() {
+    if (busy) return;
+    busy = true;
+
+    loaderBarFill.style.transition = 'none';
+    loaderBarFill.style.width = '0%';
+    loaderStatus.textContent = 'loading...';
+    void loaderBarFill.offsetWidth;          // restart the bar from 0
+    loaderBarFill.style.transition = '';
+    loaderScreen.classList.remove('hidden'); // fade the loader back in
+
+    let p = 0;
+    const timer = setInterval(() => {
+      p = Math.min(p + (90 / (REPLAY_MS / 150)) * (0.7 + Math.random() * 0.6), 90);
+      loaderBarFill.style.width = p + '%';
+    }, 150);
+
+    setTimeout(() => {
+      clearInterval(timer);
+      loaderBarFill.style.width = '100%';
+      loaderStatus.textContent = 'ready';
+      setTimeout(() => {
+        loaderScreen.classList.add('hidden');
+        busy = false;
+      }, 350);
+    }, REPLAY_MS);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      wasHidden = true;
+    } else if (wasHidden) {
+      wasHidden = false;
+      replayLoader();
+    }
+  });
+
+  // Back/forward cache restore counts as "coming back" too
+  window.addEventListener('pageshow', (e) => { if (e.persisted) replayLoader(); });
+
+  // ---- First load ----
+  // Skip loading screen when arriving via ?fromdemo=1
+  if (skipFirst) {
     document.body.classList.remove('loading');
     loaderScreen.classList.add('hidden');
     params.delete('fromdemo');
@@ -33,6 +88,7 @@
     setTimeout(() => {
       loaderScreen.classList.add('hidden');
       document.body.classList.remove('loading');
+      busy = false;
     }, 350);
   }
 
@@ -49,7 +105,23 @@
   }
 })();
 
+// Back to top: only scrolls to the top when the button is clicked
+(function () {
+  const btn = document.querySelector('.back-to-top');
+  if (!btn) return;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault(); // no "#top" jump / no URL hash change
+    if (window.location.hash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+
 // Name heading: typing effect
+// The heading starts fully typed. It only starts its type/erase loop once the
+// intro has glided into place (the hero script fires "hero:landed"), so the
+// intro text always lands on identical, fully-visible text.
 (function () {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const nameEls = document.querySelectorAll('#heroHeading h1.name');
@@ -64,16 +136,25 @@
   nameEls.forEach((el) => {
     let html = '';
     lines.forEach((line, li) => {
+      html += '<span class="ln">';
       for (const ch of line) {
-        html += `<span class="tc tc-hide">${ch === ' ' ? '&nbsp;' : ch}</span>`;
+        html += `<span class="tc">${ch === ' ' ? '&nbsp;' : ch}</span>`;
       }
+      html += '</span>';
       if (li < lines.length - 1) html += '<br>';
     });
     el.innerHTML = html;
 
     const chars = Array.from(el.querySelectorAll('.tc'));
-    let i = 0;
-    let typingIn = true;
+    let i = chars.length;
+    let typingIn = false;
+    let timer = null;
+
+    function showAll() {
+      chars.forEach((c) => { c.classList.remove('tc-hide'); c.classList.remove('tc-active'); });
+      i = chars.length;
+      typingIn = false;
+    }
 
     function tick() {
       if (typingIn) {
@@ -82,36 +163,49 @@
           chars[i].classList.remove('tc-hide');
           chars[i].classList.add('tc-active');
           i++;
-          setTimeout(tick, TYPE_SPEED);
+          timer = setTimeout(tick, TYPE_SPEED);
         } else {
           chars.forEach((c) => c.classList.remove('tc-active'));
           typingIn = false;
-          setTimeout(tick, HOLD_AFTER_TYPE);
+          timer = setTimeout(tick, HOLD_AFTER_TYPE);
         }
       } else {
         if (i > 0) {
           i--;
           chars[i].classList.add('tc-hide');
           chars[i].classList.remove('tc-active');
-          setTimeout(tick, ERASE_SPEED);
+          timer = setTimeout(tick, ERASE_SPEED);
         } else {
           typingIn = true;
-          setTimeout(tick, HOLD_AFTER_ERASE);
+          timer = setTimeout(tick, HOLD_AFTER_ERASE);
         }
       }
     }
-    tick();
+
+    window.addEventListener('hero:landed', () => {
+      clearTimeout(timer);
+      showAll();
+      timer = setTimeout(tick, HOLD_AFTER_TYPE);
+    });
+    window.addEventListener('hero:left', () => {
+      clearTimeout(timer);
+      showAll();
+    });
   });
 })();
 
 // Hero intro transition
+// The big centered name glides line-by-line and lands exactly on top of the
+// real heading (same size, same spot), then the two swap invisibly. Scroll only
+// drives a target value; the animation catches up with a frame-rate-independent
+// ease, so it stays smooth with a mouse wheel, trackpad, or fast flick.
 (function () {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isMobile = window.matchMedia('(max-width:820px)').matches;
   const headerEl = document.querySelector('header');
   const heroScroll = document.getElementById('heroScroll');
+  const heroSection = document.getElementById('heroSection');
   const introCenter = document.getElementById('introCenter');
-  const introInner = document.getElementById('introInner');
   const heroHeading = document.getElementById('heroHeading');
   const revealItems = Array.from(document.querySelectorAll('.reveal-item'));
   if (!heroScroll || !heroHeading) return;
@@ -121,87 +215,124 @@
   }
   setHeaderHeightVar();
 
-  // CSS fallback (prefers-reduced-motion / max-width:820px) handles the static state
-  if (reduceMotion || isMobile) return;
+  // CSS fallback (prefers-reduced-motion / max-width:820px) shows the final state
+  if (reduceMotion || isMobile) {
+    if (!reduceMotion) window.dispatchEvent(new Event('hero:landed'));
+    return;
+  }
 
-  // Delta between intro text and real heading position
-  let dx = 0, dy = 0;
+  // Each intro line is paired with the matching line of the real heading
+  const introLines = Array.from(introCenter.querySelectorAll('.ln'));
+  const heroLines = Array.from(heroHeading.querySelectorAll('.ln'));
+  const deltas = introLines.map(() => ({ dx: 0, dy: 0 }));
+
   function recomputeDelta() {
-    if (!introInner) return;
-    const prevTransform = introCenter.style.transform;
-    introCenter.style.transform = 'none'; // measure from the untransformed baseline
-    const introRect = introInner.getBoundingClientRect();
-    const heroRect = heroHeading.getBoundingClientRect();
-    dx = heroRect.left - introRect.left;
-    dy = heroRect.top - introRect.top;
-    introCenter.style.transform = prevTransform;
+    const prev = introLines.map((el) => el.style.transform);
+    introLines.forEach((el) => { el.style.transform = 'none'; });
+    introCenter.style.transform = 'none';
+    const headerH = headerEl ? headerEl.offsetHeight : 0;
+    const heroTop = heroSection.getBoundingClientRect().top;
+    introLines.forEach((el, i) => {
+      const target = heroLines[i];
+      if (!target) return;
+      const ir = el.getBoundingClientRect();
+      const hr = target.getBoundingClientRect();
+      deltas[i].dx = hr.left - ir.left;
+      // measure relative to the hero section so it is correct at any scroll position
+      deltas[i].dy = (hr.top - heroTop) + headerH - ir.top;
+    });
+    introLines.forEach((el, i) => { el.style.transform = prev[i]; });
+  }
+
+  // Measured once (and on resize) so scrolling never forces a layout read
+  let heroTopAbs = 0;
+  let scrollable = 1;
+  function measureScroll() {
+    heroTopAbs = heroScroll.getBoundingClientRect().top + window.scrollY;
+    scrollable = heroScroll.offsetHeight - window.innerHeight;
   }
 
   function getProgress() {
-    const rect = heroScroll.getBoundingClientRect();
-    const scrollable = heroScroll.offsetHeight - window.innerHeight;
     if (scrollable <= 0) return 1;
-    const scrolled = -rect.top;
-    return Math.min(Math.max(scrolled / scrollable, 0), 1);
+    return Math.min(Math.max((window.scrollY - heroTopAbs) / scrollable, 0), 1);
   }
 
-  // Maps progress p (0-1) into a local 0-1 value over [start, end]
-  function localProgress(p, start, end) {
-    return Math.min(Math.max((p - start) / (end - start), 0), 1);
-  }
+  const local = (p, s, e) => Math.min(Math.max((p - s) / (e - s), 0), 1);
+  const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
+  let landed = false;
+
+  let lastApplied = -1;
   function applyProgress(p) {
-    // Centered intro slides toward the real heading's spot while fading out
-    const introP = localProgress(p, 0, 0.45);
-    if (introCenter) {
-      const eased = introP * introP * (3 - 2 * introP); // smoothstep for a natural glide
-      introCenter.style.opacity = String(1 - introP);
-      introCenter.style.transform = `translate(${dx * eased}px, ${dy * eased}px) scale(${1 - eased * 0.1})`;
-      introCenter.style.pointerEvents = introP >= 1 ? 'none' : 'auto';
-    }
-
-    // Real heading (already in its correct final spot) fades in right after
-    const headingP = localProgress(p, 0.25, 0.5);
-    heroHeading.style.opacity = String(headingP);
-
-    // Rest of the hero cascades in immediately after, slightly staggered
-    revealItems.forEach((el) => {
-      const delayIndex = parseFloat(el.dataset.d || '0');
-      const start = 0.45 + delayIndex * 0.08;
-      const local = localProgress(p, start, 1);
-      el.style.opacity = String(local);
-      el.style.transform = `translateY(${18 * (1 - local)}px)`;
+    if (p === lastApplied) return;
+    lastApplied = p;
+    // 1) Intro lines glide to their final spot, slightly staggered
+    introLines.forEach((el, i) => {
+      const e = easeInOutCubic(local(p, i * 0.04, 0.58 + i * 0.04));
+      el.style.transform = `translate3d(${deltas[i].dx * e}px, ${deltas[i].dy * e}px, 0)`;
     });
+
+    // 2) Swap: the real heading is already underneath, pixel-identical
+    heroHeading.style.opacity = String(local(p, 0.64, 0.70));
+    const introOpacity = 1 - local(p, 0.68, 0.72);
+    introCenter.style.opacity = String(introOpacity);
+    introCenter.style.visibility = introOpacity <= 0 ? 'hidden' : 'visible';
+
+    // 3) Rest of the hero cascades in as the name settles
+    revealItems.forEach((el) => {
+      const d = parseFloat(el.dataset.d || '0');
+      const s = 0.58 + d * 0.06;
+      const l = easeInOutCubic(local(p, s, s + 0.3));
+      el.style.opacity = String(l);
+      el.style.transform = `translate3d(0, ${22 * (1 - l)}px, 0)`;
+    });
+
+    // Tell the typing effect when to start / stop
+    if (!landed && p >= 0.72) { landed = true; window.dispatchEvent(new Event('hero:landed')); }
+    else if (landed && p < 0.6) { landed = false; window.dispatchEvent(new Event('hero:left')); }
   }
 
-  // Smoothly interpolate toward the scroll-driven target instead of snapping
-  // straight to it every frame — this is what makes the intro glide instead
-  // of jump when the user scrolls fast.
+  // Frame-rate independent smoothing; the loop only runs while catching up
+  const CATCH_UP = 7; // higher = snappier, lower = floatier
   let currentP = 0;
-  let targetP = 0;
-  const SMOOTHING = 0.09; // lower = smoother/slower catch-up, higher = snappier
+  let running = false;
+  let last = 0;
 
-  function raf() {
-    targetP = getProgress();
-    currentP += (targetP - currentP) * SMOOTHING;
-    // Snap once the gap is imperceptible so it doesn't keep animating forever
-    if (Math.abs(targetP - currentP) < 0.0008) currentP = targetP;
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    const target = getProgress();
+    currentP += (target - currentP) * (1 - Math.exp(-dt * CATCH_UP));
+    if (Math.abs(target - currentP) < 0.0005) currentP = target;
     applyProgress(currentP);
-    requestAnimationFrame(raf);
+    if (currentP !== target) requestAnimationFrame(frame);
+    else running = false;
+  }
+
+  function kick() {
+    if (running) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(frame);
   }
 
   function onResize() {
     setHeaderHeightVar();
+    measureScroll();
     recomputeDelta();
+    lastApplied = -1;
+    currentP = getProgress();
     applyProgress(currentP);
   }
 
+  measureScroll();
   recomputeDelta();
   currentP = getProgress();
   applyProgress(currentP);
-  requestAnimationFrame(raf);
+  window.addEventListener('scroll', kick, { passive: true });
   window.addEventListener('resize', onResize);
   window.addEventListener('load', onResize);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
 })();
 
 // Theme toggle
@@ -259,15 +390,20 @@
     if (link) link.classList.add('active');
   }
 
-  function updateActiveSection() {
+  let tops = [];
+  let spyLine = 80;
+  function measureSections() {
     const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 72;
-    const line = headerH + 8; // a little past the header edge
+    spyLine = headerH + 8; // a little past the header edge
+    const y = window.scrollY;
+    tops = sections.map((sec) => ({ id: sec.id, top: sec.getBoundingClientRect().top + y }));
+  }
 
+  function updateActiveSection() {
+    const y = window.scrollY;
     let current = null;
-    sections.forEach((sec) => {
-      if (sec.getBoundingClientRect().top - line <= 0) {
-        current = sec.id; // last section whose top has crossed the line wins
-      }
+    tops.forEach((s) => {
+      if (s.top - y - spyLine <= 0) current = s.id; // last section whose top has crossed the line wins
     });
 
     if (current) setActive(current);
@@ -284,10 +420,12 @@
     });
   }
 
+  function remeasure() { measureSections(); updateActiveSection(); }
   window.addEventListener('scroll', onSpyScroll, { passive: true });
-  window.addEventListener('resize', onSpyScroll);
-  window.addEventListener('load', updateActiveSection);
-  updateActiveSection();
+  window.addEventListener('resize', remeasure);
+  window.addEventListener('load', remeasure);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(remeasure);
+  remeasure();
 })();
 
 // Mobile nav toggle
@@ -298,15 +436,28 @@
   navlinks.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => navlinks.classList.remove('open')));
 })();
 
-// Skills marquee
+// Skills marquee: one scrolling row per category
 (function () {
+  const skillGroups = [
+    { label: 'Languages', skills: ['C#', 'Java', 'Python', 'JavaScript', 'TypeScript'] },
+    { label: 'Frontend',  skills: ['HTML', 'CSS', 'React', 'React Native', 'Expo'] },
+    { label: 'Backend',   skills: ['Supabase', 'Node.js'] },
+    { label: 'Tools',     skills: ['VS Code', 'Git'] }
+  ];
+
   const skillIcons = {
     'C#': 'assets/logos/csharp.png',
     'Java': 'assets/logos/java.png',
     'Python': 'assets/logos/python.png',
+    'JavaScript': 'assets/logos/javascript.png',
+    'TypeScript': 'assets/logos/typescript.png',
     'HTML': 'assets/logos/html.png',
     'CSS': 'assets/logos/css.png',
-    'JavaScript': 'assets/logos/javascript.png',
+    'React': 'assets/logos/react.png',
+    'React Native': 'assets/logos/reactnative.png',
+    'Expo': 'assets/logos/expo.png',
+    'Supabase': 'assets/logos/supabase.png',
+    'Node.js': 'assets/logos/nodejs.png',
     'VS Code': 'assets/logos/vscode.png',
     'Git': 'assets/logos/git.png'
   };
@@ -315,24 +466,60 @@
     'C#': 'Object-oriented language used for console apps like the ATM system and calculator projects.',
     'Java': 'General-purpose OOP language used for building structured, class-based applications.',
     'Python': 'Versatile language used for scripting, automation, and general programming practice.',
+    'JavaScript': 'Scripting language used to add interactivity, like this site\u2019s theme toggle and cursor effects.',
+    'TypeScript': 'Typed superset of JavaScript that catches bugs early, used in the LSPU Voting System.',
     'HTML': 'Markup language used to structure the content and layout of web pages.',
     'CSS': 'Stylesheet language used to design, layout, and theme web pages like this portfolio.',
-    'JavaScript': 'Scripting language used to add interactivity, like this site\u2019s theme toggle and cursor effects.',
+    'React': 'JavaScript library for building component-based user interfaces.',
+    'React Native': 'Framework for building mobile apps with React, used for the LSPU Voting System.',
+    'Expo': 'Toolkit for building, running, and testing React Native apps, used for the LSPU Voting System.',
+    'Supabase': 'Open-source backend with authentication and a Postgres database, used for sign-in and vote storage in the LSPU Voting System.',
+    'Node.js': 'JavaScript runtime that powers development tools like npm and Expo.',
     'VS Code': 'Main code editor used for writing, debugging, and running projects.',
     'Git': 'Version control system used to track changes and manage project history.'
   };
 
-  const skillsTrack = document.getElementById('skillsTrack');
-  const skillNames = Object.keys(skillIcons);
+  // Skills section: filter pills (All / Languages / Frontend / ...) over one grid of cards
+  const marquee = document.querySelector('.skills-marquee');
+  if (!marquee) return;
 
-  function buildSkillCards() {
-    let html = '';
-    [...skillNames, ...skillNames].forEach((name) => { // duplicated so the -50% loop is seamless
-      html += `<div class="skill-card" data-skill="${name}"><img src="${skillIcons[name]}" alt="${name} logo" loading="lazy"><span>${name}</span></div>`;
-    });
-    skillsTrack.innerHTML = html;
+  const allSkills = [];
+  skillGroups.forEach((group) => {
+    group.skills.forEach((name) => allSkills.push({ name, group: group.label }));
+  });
+
+  marquee.innerHTML =
+    '<div class="skills-filters" id="skillsFilters"></div>' +
+    '<div class="skills-grid" id="skillsGrid"></div>';
+  const filters = document.getElementById('skillsFilters');
+  const grid = document.getElementById('skillsGrid');
+
+  let currentFilter = 'All';
+
+  function renderFilters() {
+    filters.innerHTML = ['All', ...skillGroups.map((g) => g.label)].map((label) =>
+      `<button type="button" class="skills-pill${label === currentFilter ? ' active' : ''}" data-filter="${label}" aria-pressed="${label === currentFilter}">${label}</button>`
+    ).join('');
   }
-  buildSkillCards();
+
+  function renderCards() {
+    const list = allSkills.filter((s) => currentFilter === 'All' || s.group === currentFilter);
+    grid.innerHTML = list.map((s, i) =>
+      `<div class="skill-card" data-skill="${s.name}" style="--i:${i}"><img src="${skillIcons[s.name]}" alt="${s.name} logo"><span>${s.name}</span></div>`
+    ).join('');
+  }
+
+  filters.addEventListener('click', (e) => {
+    const pill = e.target.closest('.skills-pill');
+    if (!pill || pill.dataset.filter === currentFilter) return;
+    currentFilter = pill.dataset.filter;
+    hideSkillTooltip();
+    renderFilters();
+    renderCards();
+  });
+
+  renderFilters();
+  renderCards();
 
   // Tooltip: shows a short description above whichever card is hovered/tapped
   const skillTooltip = document.getElementById('skillTooltip');
@@ -360,7 +547,7 @@
 
   if (isTouchDevice) {
     // First tap opens the tooltip, tapping the same card again closes it.
-    skillsTrack.addEventListener('click', (e) => {
+    marquee.addEventListener('click', (e) => {
       const card = e.target.closest('.skill-card');
       if (!card) return;
       if (activeSkillCard === card) {
@@ -374,12 +561,12 @@
       if (!e.target.closest('.skill-card')) hideSkillTooltip();
     });
   } else {
-    skillsTrack.addEventListener('mouseover', (e) => {
+    marquee.addEventListener('mouseover', (e) => {
       const card = e.target.closest('.skill-card');
       if (!card) return;
       showSkillTooltip(card);
     });
-    skillsTrack.addEventListener('mouseout', (e) => {
+    marquee.addEventListener('mouseout', (e) => {
       const card = e.target.closest('.skill-card');
       if (!card) return;
       hideSkillTooltip();
@@ -449,6 +636,8 @@
 })();
 
 // Custom cursor
+// Uses transforms (compositor only) and only runs its loop while the cursor is
+// still catching up, so it never forces layout or repaints during scrolling.
 (function () {
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
 
@@ -456,31 +645,35 @@
   const cRing = document.querySelector('.cursor-ring');
   const cGlow = document.querySelector('.cursor-glow');
 
-  let mx = 0, my = 0;
-  let ringX = 0, ringY = 0;
-  let glowX = 0, glowY = 0;
+  let mx = -100, my = -100;
+  let ringX = -100, ringY = -100;
+  let glowX = -100, glowY = -100;
+  let running = false;
+
+  const place = (el, x, y) => {
+    el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%)`;
+  };
+
+  function tick() {
+    ringX += (mx - ringX) * 0.18;
+    ringY += (my - ringY) * 0.18;
+    glowX += (mx - glowX) * 0.09;
+    glowY += (my - glowY) * 0.09;
+    place(cRing, ringX, ringY);
+    place(cGlow, glowX, glowY);
+
+    const settled = Math.abs(mx - ringX) < 0.2 && Math.abs(my - ringY) < 0.2 &&
+                    Math.abs(mx - glowX) < 0.2 && Math.abs(my - glowY) < 0.2;
+    if (settled) { running = false; return; }
+    requestAnimationFrame(tick);
+  }
 
   document.addEventListener('mousemove', (e) => {
     mx = e.clientX;
     my = e.clientY;
-    cDot.style.left = mx + 'px';
-    cDot.style.top = my + 'px';
-  });
-
-  function tick() {
-    ringX += (mx - ringX) * 0.16;
-    ringY += (my - ringY) * 0.16;
-    cRing.style.left = ringX + 'px';
-    cRing.style.top = ringY + 'px';
-
-    glowX += (mx - glowX) * 0.08;
-    glowY += (my - glowY) * 0.08;
-    cGlow.style.left = glowX + 'px';
-    cGlow.style.top = glowY + 'px';
-
-    requestAnimationFrame(tick);
-  }
-  tick();
+    place(cDot, mx, my);
+    if (!running) { running = true; requestAnimationFrame(tick); }
+  }, { passive: true });
 
   const hoverSelector = 'a, button, .skill-card, .proj-card, input, textarea, [role="button"]';
   document.querySelectorAll(hoverSelector).forEach((el) => {
@@ -504,7 +697,11 @@
   let curX = 0, curY = 0;
 
   // Listen on the whole frame so tilt responds near the edges
+  let tiltRunning = false;
+  function startTilt() { if (!tiltRunning) { tiltRunning = true; requestAnimationFrame(tiltTick); } }
+
   photoFrame.addEventListener('mousemove', (e) => {
+    startTilt();
     const rect = photoFrame.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
@@ -515,13 +712,15 @@
   photoFrame.addEventListener('mouseleave', () => {
     targetX = 0;
     targetY = 0;
+    startTilt();
   });
 
   function tiltTick() {
     curX += (targetX - curX) * 0.12;
     curY += (targetY - curY) * 0.12;
     photoTiltImg.style.transform = `rotateX(${curX.toFixed(2)}deg) rotateY(${curY.toFixed(2)}deg)`;
+    const settled = Math.abs(targetX - curX) < 0.01 && Math.abs(targetY - curY) < 0.01;
+    if (settled) { tiltRunning = false; return; }
     requestAnimationFrame(tiltTick);
   }
-  tiltTick();
 })();

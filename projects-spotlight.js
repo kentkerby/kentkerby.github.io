@@ -4,6 +4,17 @@
 (function () {
   const projects = [
     {
+      type: 'Mobile app',
+      title: 'LSPU Voting System',
+      desc: 'A React Native student council election app with student sign-in, enrollment eligibility checks, human verification, and a live-updating results tally.',
+      tags: ['React Native', 'Expo', 'TypeScript', 'Zod'],
+      demoUrl: 'LSPU-Voting-System/index.html',
+      preview:
+        '<div class="mock-app">' +
+          '<div class="mock-shot"><img src="assets/img/previews/voting-preview.png" alt="LSPU Voting System login screen and vote flow" loading="lazy"></div>' +
+        '</div>'
+    },
+    {
       type: 'Console app',
       title: 'Simple ATM System',
       desc: 'A console-based ATM simulation with login, balance inquiry, deposit, and withdrawal, written to practice object-oriented design and input validation.',

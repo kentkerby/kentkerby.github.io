@@ -12,20 +12,21 @@
 .spotlight-track.no-anim { transition: none; }
 
 .spotlight-slide {
-  flex: 0 0 87%;
-  margin-right: 22px;
+  flex: 0 0 60%;
+  margin-right: 1.375rem;
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  min-height: 560px;
+  /* flexible: follows the screen height so the whole card fits on small laptops */
+  min-height: clamp(23rem, calc(100vh - 15rem), 35rem);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0.75rem;
   overflow: hidden;
   background: var(--surface);
 }
 
 .spotlight-code {
   background: var(--bg);
-  padding: 34px 28px;
+  padding: clamp(1rem, 3.5vh, 2.125rem) 1.5rem;
   border-right: 1px solid var(--border);
   overflow: hidden;
   display: flex;
@@ -35,9 +36,9 @@
   display: flex;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0.625rem;
   overflow: hidden;
-  min-height: 420px;
+  min-height: 0;
   /* Looks like the real app, but it's an inert static replica —
      nothing here is clickable or focusable. */
   pointer-events: none;
@@ -51,115 +52,187 @@
 .mock-titlebar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.mock-dot { width: 9px; height: 9px; border-radius: 50%; }
+.mock-dot { width: 0.5625rem; height: 0.5625rem; border-radius: 50%; }
 .mock-dot.r { background: #D9645A; }
 .mock-dot.y { background: #D9A94E; }
 .mock-dot.g { background: #4EA97F; }
 .mock-name {
-  margin-left: 8px;
+  margin-left: 0.5rem;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
   letter-spacing: .02em;
 }
 .mock-screen {
-  padding: 18px 16px;
+  padding: 1.125rem 1rem;
   flex: 1;
-  min-height: 180px;
+  min-height: 11.25rem;
 }
 .mock-line {
-  margin: 0 0 4px;
+  margin: 0 0 0.25rem;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.85;
 }
 .mock-line.accent { color: var(--teal); }
 .mock-line.warn { color: var(--copper); }
 .mock-line.muted { color: var(--muted); }
 .mock-controls {
-  padding: 14px 16px;
+  padding: 0.875rem 1rem;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
 }
 .mock-controls input {
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   color: var(--text);
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
   font-family: 'JetBrains Mono', monospace;
   width: 100%;
 }
-.mock-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mock-btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .mock-btn {
   flex: 1;
-  min-width: 110px;
+  min-width: 6.875rem;
   background: transparent;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 10px;
+  border-radius: 0.375rem;
+  padding: 0.625rem;
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .mock-btn.primary { border-color: var(--copper); color: var(--copper); }
 
+/* Phone-shaped preview (for the mobile app project), sitting inside the
+   same .mockwin shell the console-app previews use, so the titlebar row
+   stays consistent across every card. */
+.mock-phone-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 0;
+  background: var(--bg);
+}
+.mock-phone {
+  width: 11.875rem;
+  border-radius: 1.625rem;
+  border: 0.125rem solid var(--border-strong);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1.125rem 2.5rem rgba(0, 0, 0, 0.28);
+}
+.mock-phone-notch {
+  display: flex;
+  justify-content: center;
+  padding: 0.4375rem 0 0.25rem;
+}
+.mock-phone-notch span {
+  width: 2.875rem;
+  height: 0.875rem;
+  border-radius: 0.5rem;
+  background: #0b0b0b;
+}
+.mock-phone-body { padding: 0.875rem 0.875rem 1rem; }
+.mock-phone-logo {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 50%;
+  margin: 0 auto 0.5rem;
+  background: var(--teal);
+  opacity: .85;
+}
+.mock-phone-eyebrow {
+  text-align: center;
+  font-size: 0.4688rem;
+  letter-spacing: .04em;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+.mock-phone-heading {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 0.625rem;
+}
+.mock-phone-field {
+  font-size: 0.5625rem;
+  color: var(--muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 0.375rem;
+  padding: 0.4375rem 0.5rem;
+  margin-bottom: 0.4375rem;
+}
+.mock-phone-btn {
+  text-align: center;
+  font-size: 0.625rem;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+}
+.mock-phone-btn.primary { background: var(--copper); color: #1a1208; }
+.mock-phone-btn.ghost { border: 1px solid var(--border-strong); color: var(--text); margin-top: 0.4375rem; }
+
 .spotlight-info {
-  padding: 40px 32px;
+  padding: clamp(1.25rem, 4vh, 2.5rem) 2rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 22px;
+  gap: clamp(0.75rem, 2.2vh, 1.375rem);
 }
 .spotlight-type {
-  font-size: 12px;
+  font-size: 0.75rem;
   letter-spacing: .04em;
   color: var(--copper);
   text-transform: uppercase;
 }
 .spotlight-info h3 {
-  margin: 12px 0 0;
-  font-size: 28px;
+  margin: 0.75rem 0 0;
+  font-size: clamp(1.375rem, 2vw, 1.75rem);
   font-weight: 700;
   line-height: 1.3;
 }
 .spotlight-desc {
   margin: 0;
-  font-size: 14.5px;
-  line-height: 1.75;
+  font-size: 0.9062rem;
+  line-height: 1.65;
   color: var(--muted);
 }
 .spotlight-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 0.4375rem;
   margin: 0;
 }
 .spotlight-demo-link {
   align-self: flex-start;
   text-decoration: none;
-  font-size: 13.5px;
-  padding: 11px 22px;
+  font-size: 0.8438rem;
+  padding: 0.6875rem 1.375rem;
 }
 
 .spotlight-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  margin-top: 20px;
+  gap: 1.375rem;
+  margin-top: 1.25rem;
 }
 .spotlight-nav button {
-  width: 36px;
-  height: 36px;
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
   background: transparent;
@@ -168,7 +241,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 0.9375rem;
   transition: border-color .2s ease, color .2s ease, transform .12s ease;
 }
 .spotlight-nav button:hover { border-color: var(--teal); color: var(--teal); }
@@ -176,15 +249,49 @@
 .spotlight-nav button.pressed { animation: navPress .32s cubic-bezier(.61, .06, .33, 1.15); }
 @keyframes navPress { 0% { transform: scale(1); } 40% { transform: scale(.82); } 100% { transform: scale(1); } }
 .spotlight-counter {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--muted);
-  min-width: 52px;
+  min-width: 3.25rem;
   text-align: center;
 }
 
 @media (max-width: 860px) {
-  .spotlight-slide { flex-basis: 92%; grid-template-columns: 1fr; min-height: 0; }
-  .spotlight-code { border-right: none; border-bottom: 1px solid var(--border); max-height: 380px; padding: 26px 20px; }
-  .mockwin { min-height: 300px; }
-  .spotlight-info { padding: 30px 22px; }
+  .spotlight-slide { flex-basis: 100%; margin-right: 1rem; grid-template-columns: 1fr; min-height: 0; }
+  .spotlight-code { border-right: none; border-bottom: 1px solid var(--border); max-height: none; padding: 1rem; }
+  .mockwin { min-height: 0; }
+  .spotlight-info { padding: 1.5rem 1.25rem; gap: 1.125rem; }
+}
+/* Phones: tighten the fake app window so nothing wraps awkwardly or gets cut off */
+@media (max-width: 600px) {
+  .spotlight-slide { border-radius: 0.75rem; }
+  .mock-titlebar { padding: 0.5rem 0.75rem; }
+  .mock-name { font-size: 0.6875rem; }
+  .mock-screen { padding: 0.875rem 0.75rem; min-height: 0; }
+  .mock-line { font-size: 0.75rem; line-height: 1.6; margin-bottom: 0.25rem; overflow-wrap: anywhere; }
+  .mock-controls { padding: 0.75rem; gap: 0.5rem; }
+  .mock-controls input { font-size: 0.8125rem; padding: 0.625rem 0.75rem; }
+  .mock-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .mock-btn { min-width: 0; padding: 0.625rem 0.5rem; }
+  .mock-btn:only-child { grid-column: 1 / -1; }
+  .spotlight-type { font-size: 0.6875rem; }
+  .spotlight-info h3 { font-size: 1.5rem; margin-top: 0.5rem; }
+  .spotlight-desc { font-size: 0.9375rem; line-height: 1.65; }
+  .spotlight-demo-link { width: 100%; text-align: center; }
+  .spotlight-nav { margin-top: 1rem; }
+}
+/* Screenshot preview (voting system): no titlebar. The picture keeps its own
+   proportions (never stretched) and the box matches the picture's background. */
+.mock-shot { position: relative; flex: 1; min-height: 0; background: #E4E8F1; }
+.mock-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+.spotlight-code:has(.mock-shot) { max-height: none; }
+
+/* Desktop: show the current project plus only the picture of the next one.
+   The viewport is cut right where the next card's picture column ends, so none
+   of the next project's text shows. */
+@media (min-width: 861px) {
+  .spotlight-viewport { clip-path: inset(0 calc(7.9% - 1.375rem) 0 0); }
+}
+
+@media (max-width: 860px) {
+  .mock-shot { flex: none; aspect-ratio: 984 / 1018; }
 }
