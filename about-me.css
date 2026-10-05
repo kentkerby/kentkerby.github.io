@@ -1,0 +1,146 @@
+/* About section animations
+   1) Reading fill: the About paragraphs light up word by word.
+   2) Education timeline: the line draws itself and each level appears as it arrives.
+   3) kerby.info panel: row highlight on hover.
+   Linked AFTER style.css so it overrides the old timeline styles. */
+
+/* 1) Reading fill (the .rf-w spans are created by about-me.js) */
+.rf-w { opacity: .3; }
+/* The text loops together with the timeline (same 10.6s cycle, same eduFade keyframes):
+   words fill in one by one, hold, fade out quickly, then about-me.js resets the words
+   while the paragraphs are hidden and the fill starts again. */
+.about-text.visible > p { animation: eduFade 10.6s linear 1.4s infinite both; }
+.about-text.visible:not(.rf-reset) .rf-w {
+  animation: rfFill .7s ease-out forwards;
+  animation-delay: calc(var(--i) * 65ms + 300ms);
+}
+@keyframes rfFill { to { opacity: 1; } }
+
+/* 2) Education timeline: line draw, on a slow loop.
+   One cycle = 10.6s: the line draws level by level (slow, same pace as before),
+   holds, then fades out QUICKLY (0.35s) and comes right back (~0.25s pause).
+   To change the draw speed, edit the keyframe percentages; to change the fade-out
+   speed, edit the eduFade keyframes. If you change the cycle length, change every "10.6s" below. */
+.edu-item { opacity: 0; }
+.edu-dot { transform: scale(0); }
+.edu-item::before { transform: scaleX(0); transform-origin: left center; }
+
+.about-text.visible .edu-timeline { animation: eduFade 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(1) { animation: eduItem1 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(2) { animation: eduItem2 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(3) { animation: eduItem3 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(1) .edu-dot { animation: eduDot1 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(2) .edu-dot { animation: eduDot2 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(3) .edu-dot { animation: eduDot3 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(1)::before { animation: eduLine1 10.6s linear 1.4s infinite both; }
+.about-text.visible .edu-item:nth-child(2)::before { animation: eduLine2 10.6s linear 1.4s infinite both; }
+
+@keyframes eduFade {
+  0%, 94.34% { opacity: 1; }
+  97.64%, 99.91% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes eduItem1 {
+  0%, 0.00% { opacity: 0; transform: translateY(0.5rem); }
+  6.60%, 97.64% { opacity: 1; transform: none; }
+  97.74%, 100% { opacity: 0; transform: translateY(0.5rem); }
+}
+@keyframes eduDot1 {
+  0%, 0.00% { transform: scale(0); }
+  3.30% { transform: scale(1.5); }
+  5.66%, 97.64% { transform: scale(1); }
+  97.74%, 100% { transform: scale(0); }
+}
+@keyframes eduItem2 {
+  0%, 21.70% { opacity: 0; transform: translateY(0.5rem); }
+  28.30%, 97.64% { opacity: 1; transform: none; }
+  97.74%, 100% { opacity: 0; transform: translateY(0.5rem); }
+}
+@keyframes eduDot2 {
+  0%, 21.70% { transform: scale(0); }
+  25.00% { transform: scale(1.5); }
+  27.36%, 97.64% { transform: scale(1); }
+  97.74%, 100% { transform: scale(0); }
+}
+@keyframes eduItem3 {
+  0%, 43.40% { opacity: 0; transform: translateY(0.5rem); }
+  50.00%, 97.64% { opacity: 1; transform: none; }
+  97.74%, 100% { opacity: 0; transform: translateY(0.5rem); }
+}
+@keyframes eduDot3 {
+  0%, 43.40% { transform: scale(0); }
+  46.70% { transform: scale(1.5); }
+  49.06%, 97.64% { transform: scale(1); }
+  97.74%, 100% { transform: scale(0); }
+}
+@keyframes eduLine1 {
+  0%, 6.60% { transform: scaleX(0); background: var(--teal); }
+  20.19% { transform: scaleX(1); background: var(--teal); }
+  27.36%, 97.64% { transform: scaleX(1); background: var(--border-strong); }
+  97.74%, 100% { transform: scaleX(0); background: var(--teal); }
+}
+@keyframes eduLineY1 {
+  0%, 6.60% { transform: scaleY(0); background: var(--teal); }
+  20.19% { transform: scaleY(1); background: var(--teal); }
+  27.36%, 97.64% { transform: scaleY(1); background: var(--border-strong); }
+  97.74%, 100% { transform: scaleY(0); background: var(--teal); }
+}
+@keyframes eduLine2 {
+  0%, 28.30% { transform: scaleX(0); background: var(--teal); }
+  41.89% { transform: scaleX(1); background: var(--teal); }
+  49.06%, 97.64% { transform: scaleX(1); background: var(--border-strong); }
+  97.74%, 100% { transform: scaleX(0); background: var(--teal); }
+}
+@keyframes eduLineY2 {
+  0%, 28.30% { transform: scaleY(0); background: var(--teal); }
+  41.89% { transform: scaleY(1); background: var(--teal); }
+  49.06%, 97.64% { transform: scaleY(1); background: var(--border-strong); }
+  97.74%, 100% { transform: scaleY(0); background: var(--teal); }
+}
+
+@media (max-width: 820px) {
+  .edu-item::before { transform: scaleY(0); transform-origin: top center; }
+  .about-text.visible .edu-item:nth-child(1)::before { animation: eduLineY1 10.6s linear 1.4s infinite both; }
+  .about-text.visible .edu-item:nth-child(2)::before { animation: eduLineY2 10.6s linear 1.4s infinite both; }
+}
+
+/* 3) kerby.info: row highlight on hover */
+.sysinfo .row {
+  position: relative;
+  margin: 0 -0.75rem;
+  padding: 0.3125rem 0.75rem;
+  border-radius: 0.25rem;
+  transition: background-color .2s ease;
+}
+.sysinfo .row::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0.25rem; bottom: 0.25rem;
+  width: 0.125rem;
+  border-radius: 0.0625rem;
+  background: var(--teal);
+  transform: scaleY(0);
+  transition: transform .2s ease;
+}
+.sysinfo .k { transition: color .2s ease; }
+.sysinfo .v { transition: transform .2s ease; }
+@media (hover: hover) {
+  .sysinfo .row:hover { background: var(--surface-2); }
+  .sysinfo .row:hover::before { transform: scaleY(1); }
+  .sysinfo .row:hover .k { color: var(--teal); }
+  .sysinfo .row:hover .v { transform: translateX(0.25rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf-w { opacity: 1; }
+  .about-text.visible .rf-w { animation: none; }
+  .about-text.visible > p { animation: none; }
+  .edu-item { opacity: 1; }
+  .edu-dot { transform: none; }
+  .edu-item::before { transform: none; }
+  .about-text.visible .edu-timeline,
+  .about-text.visible .edu-item,
+  .about-text.visible .edu-dot,
+  .about-text.visible .edu-item::before { animation: none !important; }
+  .sysinfo .row, .sysinfo .row::before, .sysinfo .k, .sysinfo .v { transition: none; }
+}

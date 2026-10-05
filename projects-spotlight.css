@@ -3,6 +3,9 @@
 
 .spotlight-viewport {
   overflow: hidden;
+  /* room for the card shadow (light mode) without moving anything */
+  padding: 0.25rem 0 1.75rem;
+  margin: -0.25rem 0 -1.75rem;
 }
 
 .spotlight-track {
@@ -182,7 +185,7 @@
   padding: 0.5rem;
   margin-top: 0.25rem;
 }
-.mock-phone-btn.primary { background: var(--copper); color: #1a1208; }
+.mock-phone-btn.primary { background: var(--copper); color: var(--on-copper); }
 .mock-phone-btn.ghost { border: 1px solid var(--border-strong); color: var(--text); margin-top: 0.4375rem; }
 
 .spotlight-info {
@@ -283,7 +286,9 @@
    proportions (never stretched) and the box matches the picture's background. */
 .mock-shot { position: relative; flex: 1; min-height: 0; background: #E4E8F1; }
 .mock-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
-.spotlight-code:has(.mock-shot) { max-height: none; }
+.spotlight-code:has(.mock-shot) { max-height: none; padding: 0; }
+/* Full-bleed: the picture fills the whole left half of the card (no padding, border or rounded frame) */
+.mockwin:has(.mock-shot) { border: 0; border-radius: 0; background: #E4E8F1; }
 
 /* Desktop: show the current project plus only the picture of the next one.
    The viewport is cut right where the next card's picture column ends, so none
@@ -293,5 +298,24 @@
 }
 
 @media (max-width: 860px) {
-  .mock-shot { flex: none; aspect-ratio: 984 / 1018; }
+  .mock-shot { flex: none; aspect-ratio: 872 / 1018; }
 }
+
+/* "Coming soon" teaser card after the last project (not counted, not navigable) */
+.spotlight-slide.is-teaser { border-style: dashed; pointer-events: none; }
+.mock-soon { display: flex; align-items: center; justify-content: center; text-align: center; }
+.mock-soon .mock-line { font-size: 0.9375rem; margin: 0; }
+.mock-cursor {
+  display: inline-block;
+  width: 0.4375rem;
+  height: 0.9375rem;
+  margin-left: 0.375rem;
+  vertical-align: -0.1875rem;
+  background: var(--teal);
+  animation: mockBlink 1s steps(1) infinite;
+}
+@keyframes mockBlink { 50% { opacity: 0; } }
+
+/* Light theme */
+html[data-theme="light"] .spotlight-nav button { background: var(--surface); box-shadow: var(--shadow-card); }
+html[data-theme="light"] .mock-controls input { background: var(--surface-2); }

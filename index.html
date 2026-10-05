@@ -69,6 +69,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="projects-spotlight.css">
+<link rel="stylesheet" href="about-me.css">
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0M6BDPG0BV"></script>
 <script>
@@ -81,27 +82,8 @@
 </head>
 <body class="loading">
 
-<!-- Background: shooting stars -->
-<div class="bg-stars" aria-hidden="true">
-  <span class="shooting-star s1"></span>
-  <span class="shooting-star s2"></span>
-  <span class="shooting-star s3"></span>
-  <span class="shooting-star s4"></span>
-  <span class="shooting-star s5"></span>
-  <span class="shooting-star s6"></span>
-  <span class="shooting-star s7"></span>
-  <span class="shooting-star s8"></span>
-  <span class="shooting-star s9"></span>
-  <span class="shooting-star s10"></span>
-  <span class="shooting-star s11"></span>
-  <span class="shooting-star s12"></span>
-  <span class="shooting-star s13"></span>
-  <span class="shooting-star s14"></span>
-  <span class="shooting-star s15"></span>
-  <span class="shooting-star s16"></span>
-  <span class="shooting-star s17"></span>
-  <span class="shooting-star s18"></span>
-</div>
+<!-- Background: flowing waves -->
+<canvas class="bg-waves" id="bgWaves" aria-hidden="true"></canvas>
 
 <!-- Loading screen -->
 <div class="loader-screen" id="loaderScreen">
@@ -145,6 +127,9 @@
     <h1 class="name"><span class="ln">Kent Kerby</span><br><span class="ln">Mahipos</span></h1>
     <p class="role"><span class="ln">Aspiring Full Stack Web Developer</span></p>
   </div>
+  <div class="scroll-cue" id="scrollCue">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M5.5 12.5 12 19l6.5-6.5"/></svg>
+  </div>
 </div>
 
 <div class="wrap" id="top">
@@ -174,7 +159,7 @@
       </div>
       <div class="photo-frame reveal-item" data-d="1">
         <div class="photo-tilt" id="photoTilt">
-          <img src="assets/img/kerby.jpg" alt="Kent Kerby Mahipos">
+          <img src="assets/img/kerby.jpg" alt="Kent Kerby Mahipos" width="1000" height="1333" decoding="async" fetchpriority="high">
         </div>
         <div class="photo-tag"><span>Hello!</span></div>
       </div>
@@ -272,42 +257,48 @@
       <h2>Contact</h2>
     </div>
     <div class="contact-panel scroll-reveal">
-      <div>
-        <h2 style="font-size:22px;">Let's build something.</h2>
-        <p>Open to student projects, on-the-job training opportunities, and anyone who wants to talk shop about code. Reach out through any of these.</p>
-      </div>
       <div class="contact-links">
-        <a href="mailto:kentkerbyyy@gmail.com">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
-          kentkerbyyy@gmail.com
-        </a>
-        <a href="https://www.facebook.com/share/19LzSAJg8W/?mibextid=wwXIfr" target="_blank" rel="noopener">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 8h2V5h-2a4 4 0 0 0-4 4v2H9v3h2v7h3v-7h2.2l.8-3H14V9a1 1 0 0 1 1-1Z"/></svg>
-          Facebook
-        </a>
-        <a href="https://www.instagram.com/justk3rbs_" target="_blank" rel="noopener">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
-          @justk3rbs_
-        </a>
+        <div class="contact-item">
+          <a href="mailto:kentkerbyyy@gmail.com" class="contact-link">
+            <span class="ci-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>
+            <span class="ci-text">kentkerbyyy@gmail.com</span>
+          </a>
+          <button type="button" class="copy-btn" id="copyEmail" data-email="kentkerbyyy@gmail.com" aria-label="Copy email address" title="Copy email">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+            <span class="copy-tip mono" aria-live="polite">Copied!</span>
+          </button>
+        </div>
+        <div class="contact-item">
+          <a href="https://www.facebook.com/share/19LzSAJg8W/?mibextid=wwXIfr" target="_blank" rel="noopener" class="contact-link">
+            <span class="ci-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></span>
+            <span class="ci-text">Facebook</span>
+          </a>
+        </div>
+        <div class="contact-item">
+          <a href="https://www.instagram.com/justk3rbs_" target="_blank" rel="noopener" class="contact-link">
+            <span class="ci-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg></span>
+            <span class="ci-text">@justk3rbs_</span>
+          </a>
+        </div>
       </div>
-    </div>
 
-    <form class="contact-form scroll-reveal" id="contactForm" action="https://formspree.io/f/mrpgwega" method="POST">
-      <div class="form-row">
-        <label for="cfName">Name</label>
-        <input type="text" id="cfName" name="name" placeholder="Your name" required>
-      </div>
-      <div class="form-row">
-        <label for="cfContact">Your Email or Phone Number</label>
-        <input type="text" id="cfContact" name="contact" placeholder="Example@gmail.com or 09XXXXXXXXX" required>
-      </div>
-      <div class="form-row">
-        <label for="cfMessage">Message</label>
-        <textarea id="cfMessage" name="message" rows="5" placeholder="Your message" required></textarea>
-      </div>
-      <button type="submit" class="btn btn-solid" id="cfSubmit">Send Message</button>
-      <p class="form-status" id="cfStatus"></p>
-    </form>
+      <form class="contact-form" id="contactForm" action="https://formspree.io/f/mrpgwega" method="POST">
+        <div class="form-row">
+          <label for="cfName">Name</label>
+          <input type="text" id="cfName" name="name" placeholder="Your name" required>
+        </div>
+        <div class="form-row">
+          <label for="cfContact">Your Email or Phone Number</label>
+          <input type="text" id="cfContact" name="contact" placeholder="Example@gmail.com or 09XXXXXXXXX" required>
+        </div>
+        <div class="form-row">
+          <label for="cfMessage">Message</label>
+          <textarea id="cfMessage" name="message" rows="5" placeholder="Your message" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-solid" id="cfSubmit">Send Message</button>
+        <p class="form-status" id="cfStatus"></p>
+      </form>
+    </div>
   </section>
 </div>
 
@@ -325,13 +316,12 @@
 </footer>
 
 <!-- Custom cursor -->
-<div class="cursor-glow"></div>
-<div class="cursor-dot"></div>
-<div class="cursor-ring"></div>
+<canvas class="cursor-orbit-canvas" aria-hidden="true"></canvas>
 <div class="skill-tooltip" id="skillTooltip"></div>
 
 <script src="script.js"></script>
 <script src="projects-spotlight.js" defer></script>
+<script src="about-me.js" defer></script>
 
 </body>
 </html>

@@ -1,6 +1,9 @@
 // Project spotlight — a peeking carousel. The current project sits in the
-// viewport with a sliver of the next/previous one visible at the edge, and
-// the track slides smoothly between them (looping in both directions).
+// viewport with a sliver of the next one visible at the edge, and the track
+// slides smoothly between them. It does NOT use the infinite-loop clone trick:
+// from the first project, "prev" slides the track through the middle projects
+// all the way to the last one, and from the last project, "next" slides back
+// through the middle projects to the first.
 (function () {
   const projects = [
     {
@@ -11,7 +14,7 @@
       demoUrl: 'LSPU-Voting-System/index.html',
       preview:
         '<div class="mock-app">' +
-          '<div class="mock-shot"><img src="assets/img/previews/voting-preview.png" alt="LSPU Voting System login screen and vote flow" loading="lazy"></div>' +
+          '<div class="mock-shot"><img src="assets/img/previews/Voting-preview.png" alt="LSPU Voting System login screen and vote flow" loading="lazy"></div>' +
         '</div>'
     },
     {
@@ -91,24 +94,40 @@
     );
   }
 
-  // Slide order includes a clone of the last project up front and a clone
-  // of the first project at the end — the classic infinite-carousel trick.
-  // That lets "next" from the last project and "prev" from the first keep
-  // sliding smoothly instead of snapping backwards.
-  const order = [projects[projects.length - 1], ...projects, projects[0]];
-  order.forEach((p) => {
+  // One slide per project, in order (no clones).
+  projects.forEach((p) => {
     const slide = document.createElement('div');
     slide.className = 'spotlight-slide';
     slide.innerHTML = slideMarkup(p);
     els.track.appendChild(slide);
   });
 
-  let position = 1; // index into `order` / track children — 1 is the first real project
+  // "Coming soon" teaser: sits after the last project so the end of the
+  // carousel doesn't look cut off. It is NOT a real project, so it isn't
+  // counted in 03 / 03 and the arrows never navigate to it.
+  const teaser = document.createElement('div');
+  teaser.className = 'spotlight-slide is-teaser';
+  teaser.setAttribute('aria-hidden', 'true');
+  teaser.innerHTML =
+    '<div class="spotlight-code"><div class="mockwin"><div class="mock-app">' +
+      '<div class="mock-titlebar">' +
+        '<span class="mock-dot r"></span><span class="mock-dot y"></span><span class="mock-dot g"></span>' +
+        '<span class="mock-name">next-project</span>' +
+      '</div>' +
+      '<div class="mock-screen mock-soon"><p class="mock-line muted">coming soon<span class="mock-cursor"></span></p></div>' +
+    '</div></div></div>' +
+    '<div class="spotlight-info"></div>';
+  els.track.appendChild(teaser);
+
+  let position = 0; // index of the current project (0 = first)
   let animating = false;
+  let settleTimer;
+
+  const BASE_MS = 550;  // duration for moving one slide
+  const EXTRA_MS = 260; // extra time per additional slide passed through
 
   function updateCounter() {
-    const realIndex = position - 1;
-    els.counter.textContent = pad(realIndex + 1) + ' / ' + pad(projects.length);
+    els.counter.textContent = pad(position + 1) + ' / ' + pad(projects.length);
   }
 
   function step() {
@@ -117,8 +136,9 @@
     return first.getBoundingClientRect().width + gap;
   }
 
-  function apply(pos, animate) {
+  function apply(pos, animate, ms) {
     if (!animate) els.track.classList.add('no-anim');
+    els.track.style.transitionDuration = animate && ms ? ms + 'ms' : '';
     els.track.style.transform = 'translateX(' + (-pos * step()) + 'px)';
     if (!animate) {
       void els.track.offsetWidth; // force reflow so the jump is instant
@@ -135,21 +155,31 @@
     btn.classList.add('pressed');
   }
 
+  function settle() {
+    clearTimeout(settleTimer);
+    updateCounter();
+    animating = false;
+  }
+
   function go(dir) {
     if (animating || projects.length < 2) return;
+    // Past either end, travel the whole way across to the other end,
+    // sliding through every project in between.
+    let target = position + dir;
+    if (target < 0) target = projects.length - 1;
+    else if (target > projects.length - 1) target = 0;
+
+    const steps = Math.abs(target - position);
+    const ms = BASE_MS + (steps - 1) * EXTRA_MS;
     animating = true;
-    position += dir;
-    apply(position, true);
+    position = target;
+    apply(position, true, ms);
+    settleTimer = setTimeout(settle, ms + 80); // safety net if transitionend never fires
   }
 
   els.track.addEventListener('transitionend', (e) => {
-    if (e.propertyName !== 'transform') return;
-    // Landed on a clone at either end — jump silently to the matching
-    // real slide so the loop feels continuous.
-    if (position === order.length - 1) { position = 1; apply(position, false); }
-    else if (position === 0) { position = order.length - 2; apply(position, false); }
-    updateCounter();
-    animating = false;
+    if (e.propertyName !== 'transform' || !animating) return;
+    settle();
   });
 
   els.prev.addEventListener('click', () => { press(els.prev); go(-1); });

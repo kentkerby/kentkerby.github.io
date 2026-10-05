@@ -105,6 +105,78 @@
   }
 })();
 
+// Background: flowing wave lines (canvas)
+// Light on the GPU: ~10 thin lines, redrawn each frame, paused when the tab is hidden.
+(function () {
+  const canvas = document.getElementById('bgWaves');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const root = document.documentElement;
+  const DPR = 1; // faint thin lines don't need retina resolution; keeps the canvas cheap
+
+  let w = 0, h = 0, teal = '#3EC9A7', copper = '#C17F45', isLight = false;
+  let lastW = 0, lastH = 0;
+
+  function readTheme() {
+    const cs = getComputedStyle(root);
+    teal = cs.getPropertyValue('--teal').trim() || teal;
+    copper = cs.getPropertyValue('--copper').trim() || copper;
+    isLight = root.getAttribute('data-theme') === 'light';
+  }
+
+  function resize() {
+    const nw = window.innerWidth, nh = window.innerHeight;
+    // ignore small height changes (mobile address bar) so the canvas isn't reallocated while scrolling
+    if (w && nw === lastW && Math.abs(nh - lastH) < 150) return;
+    lastW = nw; lastH = nh;
+    w = nw; h = nh;
+    canvas.width = Math.round(w * DPR);
+    canvas.height = Math.round(h * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (reduceMotion) draw(0);
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, w, h);
+    const small = w < 700;
+    const lines = small ? 6 : 10;
+    const step = small ? 14 : 12;
+    const k1 = (Math.PI * 2) / (w * (small ? 1.1 : 0.65));
+    const k2 = (Math.PI * 2) / (w * (small ? 2.2 : 1.5));
+    const spacing = h * 0.045;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < lines; i++) {
+      const baseY = h * 0.5 + (i - (lines - 1) / 2) * spacing;
+      const amp1 = h * (0.024 + i * 0.0028);
+      const amp2 = h * 0.014;
+      ctx.beginPath();
+      for (let x = 0; x <= w + step; x += step) {
+        const y = baseY + Math.sin(x * k1 + t * 0.0009 + i * 0.55) * amp1 + Math.sin(x * k2 - t * 0.0006 + i) * amp2;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = i % 3 === 0 ? copper : teal;
+      ctx.globalAlpha = (isLight ? 0.10 : 0.12) + i * (isLight ? 0.022 : 0.03);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ~30fps is plenty for slow waves and halves the work
+  let lastDraw = 0;
+  function loop(t) {
+    if (t - lastDraw >= 32) { lastDraw = t; draw(t); }
+    requestAnimationFrame(loop);
+  }
+
+  readTheme();
+  resize();
+  window.addEventListener('resize', resize);
+  new MutationObserver(() => { readTheme(); if (reduceMotion) draw(0); })
+    .observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  if (!reduceMotion) requestAnimationFrame(loop);
+})();
+
 // Back to top: only scrolls to the top when the button is clicked
 (function () {
   const btn = document.querySelector('.back-to-top');
@@ -208,6 +280,7 @@
   const introCenter = document.getElementById('introCenter');
   const heroHeading = document.getElementById('heroHeading');
   const revealItems = Array.from(document.querySelectorAll('.reveal-item'));
+  const scrollCue = document.getElementById('scrollCue');
   if (!heroScroll || !heroHeading) return;
 
   function setHeaderHeightVar() {
@@ -271,6 +344,8 @@
       const e = easeInOutCubic(local(p, i * 0.04, 0.58 + i * 0.04));
       el.style.transform = `translate3d(${deltas[i].dx * e}px, ${deltas[i].dy * e}px, 0)`;
     });
+
+    if (scrollCue) scrollCue.style.opacity = String(1 - local(p, 0, 0.08));
 
     // 2) Swap: the real heading is already underneath, pixel-identical
     heroHeading.style.opacity = String(local(p, 0.64, 0.70));
@@ -367,7 +442,7 @@
         entry.target.classList.remove('visible'); // re-play next time it scrolls into view
       }
     });
-  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+  }, { threshold: 0, rootMargin: '0px 0px -4% 0px' });
 
   revealEls.forEach((el) => observer.observe(el));
 })();
@@ -635,51 +710,201 @@
   });
 })();
 
-// Custom cursor
-// Uses transforms (compositor only) and only runs its loop while the cursor is
-// still catching up, so it never forces layout or repaints during scrolling.
+// Copy email button
+(function () {
+  const btn = document.getElementById('copyEmail');
+  if (!btn) return;
+  let timer;
+  btn.addEventListener('click', async () => {
+    const email = btn.dataset.email;
+    try {
+      await navigator.clipboard.writeText(email);
+    } catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = email;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    btn.classList.add('copied');
+    clearTimeout(timer);
+    timer = setTimeout(() => btn.classList.remove('copied'), 1600);
+  });
+})();
+
+// Custom cursor: copper center dot + 4 teal satellites that orbit it.
+// Satellites lag behind elastically, spin faster (and widen) over interactive
+// elements, and get a short spin burst on click. Extras: a copper shockwave ring
+// on click and a trail of fading stardust while the mouse moves.
+// One small canvas, one rAF loop.
 (function () {
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
 
-  const cDot = document.querySelector('.cursor-dot');
-  const cRing = document.querySelector('.cursor-ring');
-  const cGlow = document.querySelector('.cursor-glow');
+  const canvas = document.querySelector('.cursor-orbit-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const root = document.documentElement;
+  const hoverSelector = 'a, button, .skill-card, .proj-card, input, textarea, [role="button"]';
 
-  let mx = -100, my = -100;
-  let ringX = -100, ringY = -100;
-  let glowX = -100, glowY = -100;
-  let running = false;
+  // Tuning (in px at 100% root size; scaled by the site's rem scale)
+  const N = 4;            // number of satellites
+  const R_NORMAL = 22;    // orbit radius
+  const R_HOVER = 40;     // orbit radius over interactive elements
+  const SPEED = 2;        // rad/s
+  const HOVER_BOOST = 4;  // spin multiplier on hover
+  const DOT = 3;          // satellite radius
+  const TRAIL = 6;        // trail length (frames)
+  const DUST_MIN_SPEED = 120; // px/s before stardust starts shedding
+  const DUST_CHANCE = 0.3;    // per satellite, per frame
+  const MAX_PARTS = 140;      // safety cap
+  const WAVE_MS = 650;        // click shockwave duration
 
-  const place = (el, x, y) => {
-    el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%)`;
+  let unit = 1, tealC = '#3EC9A7', copperC = '#C17F45';
+  let tealRGB = [62, 201, 167], copperRGB = [193, 127, 69];
+  const parseHex = (v, fb) => {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+    if (!m) return fb;
+    let x = m[1];
+    if (x.length === 3) x = x.split('').map((ch) => ch + ch).join('');
+    return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16)];
   };
-
-  function tick() {
-    ringX += (mx - ringX) * 0.18;
-    ringY += (my - ringY) * 0.18;
-    glowX += (mx - glowX) * 0.09;
-    glowY += (my - glowY) * 0.09;
-    place(cRing, ringX, ringY);
-    place(cGlow, glowX, glowY);
-
-    const settled = Math.abs(mx - ringX) < 0.2 && Math.abs(my - ringY) < 0.2 &&
-                    Math.abs(mx - glowX) < 0.2 && Math.abs(my - glowY) < 0.2;
-    if (settled) { running = false; return; }
-    requestAnimationFrame(tick);
+  function readTheme() {
+    const cs = getComputedStyle(root);
+    unit = parseFloat(cs.fontSize) / 16 || 1;
+    tealC = cs.getPropertyValue('--cursor-accent').trim() || tealC;
+    copperC = cs.getPropertyValue('--copper').trim() || copperC;
+    tealRGB = parseHex(tealC, tealRGB);
+    copperRGB = parseHex(copperC, copperRGB);
   }
+  function resize() {
+    const d = window.devicePixelRatio || 1;
+    canvas.width = Math.round(innerWidth * d);
+    canvas.height = Math.round(innerHeight * d);
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    readTheme();
+  }
+  resize();
+  addEventListener('resize', resize);
+  new MutationObserver(readTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+
+  let mx = -100, my = -100, pmx = -100, pmy = -100;
+  let cx = -100, cy = -100;
+  let hover = false, hc = 0, vel = 0, impulse = 0, vis = 0, inside = true, seen = false;
+  let radius = R_NORMAL, spin = SPEED, angle = 0;
+  const dots = Array.from({ length: N }, () => ({ x: -100, y: -100, h: [] }));
+  let parts = [];  // stardust
+  let waves = [];  // click shockwaves
 
   document.addEventListener('mousemove', (e) => {
-    mx = e.clientX;
-    my = e.clientY;
-    place(cDot, mx, my);
-    if (!running) { running = true; requestAnimationFrame(tick); }
+    mx = e.clientX; my = e.clientY;
+    hover = !!e.target.closest(hoverSelector);
+    if (!seen) {
+      seen = true;
+      cx = pmx = mx; cy = pmy = my;
+      dots.forEach((d) => { d.x = mx; d.y = my; d.h.length = 0; });
+    }
+    inside = true;
   }, { passive: true });
-
-  const hoverSelector = 'a, button, .skill-card, .proj-card, input, textarea, [role="button"]';
-  document.querySelectorAll(hoverSelector).forEach((el) => {
-    el.addEventListener('mouseenter', () => cRing.classList.add('hovering'));
-    el.addEventListener('mouseleave', () => cRing.classList.remove('hovering'));
+  document.addEventListener('mousedown', () => {
+    impulse = 9;
+    if (seen) waves.push({ x: mx, y: my, t: performance.now() });
   });
+  document.documentElement.addEventListener('mouseleave', () => { inside = false; });
+  document.documentElement.addEventListener('mouseenter', () => { inside = true; });
+
+  function dot(x, y, r, color, alpha) {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(r, 0.1), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+
+    vel += (Math.hypot(mx - pmx, my - pmy) / Math.max(dt, 0.001) - vel) * Math.min(1, dt * 10);
+    pmx = mx; pmy = my;
+    hc += ((hover ? 1 : 0) - hc) * Math.min(1, dt * 10);
+    vis += ((inside && seen ? 1 : 0) - vis) * Math.min(1, dt * 12);
+    impulse *= Math.pow(0.02, dt);
+    cx += (mx - cx) * Math.min(1, dt * 22);
+    cy += (my - cy) * Math.min(1, dt * 22);
+
+    radius += ((hover ? R_HOVER : R_NORMAL) - radius) * Math.min(1, dt * 8);
+    const target = SPEED * (1 + (HOVER_BOOST - 1) * hc) + Math.min(vel / 500, 2) + impulse;
+    spin += (target - spin) * Math.min(1, dt * 7);
+    angle += spin * dt;
+
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    // satellites blend teal -> copper while hovering something interactive
+    const orbC = 'rgb(' + tealRGB.map((v, k) => Math.round(v + (copperRGB[k] - v) * hc)).join(',') + ')';
+    const trailLen = Math.round(TRAIL * (1 + hc * 0.8));
+    const sz = DOT * unit * (1 + hc * 0.35);
+
+    for (let i = 0; i < N; i++) {
+      const d = dots[i];
+      const a = angle + i * Math.PI * 2 / N;
+      const tx = cx + Math.cos(a) * radius * unit;
+      const ty = cy + Math.sin(a) * radius * unit;
+      const f = Math.min(1, dt * (7 + i * 1.5)); // each satellite lags a bit differently
+      d.x += (tx - d.x) * f; d.y += (ty - d.y) * f;
+
+      d.h.push({ x: d.x, y: d.y });
+      while (d.h.length > trailLen) d.h.shift();
+      for (let j = 0; j < d.h.length; j++) {
+        const q = j / d.h.length;
+        dot(d.h[j].x, d.h[j].y, sz * q * 0.8, orbC, q * 0.45 * vis);
+      }
+      dot(d.x, d.y, sz * 2.2, orbC, 0.12 * vis); // soft halo
+      dot(d.x, d.y, sz, orbC, vis);
+
+      // stardust: shed tiny particles while the mouse is moving
+      if (vel > DUST_MIN_SPEED && parts.length < MAX_PARTS && Math.random() < DUST_CHANCE) {
+        parts.push({
+          x: d.x, y: d.y,
+          vx: (Math.random() - 0.5) * 40 * unit, vy: (Math.random() - 0.5) * 40 * unit,
+          l: 0, m: 0.7 + Math.random() * 0.5, r: 1.6 * unit
+        });
+      }
+    }
+
+    // update + draw stardust
+    parts = parts.filter((p) => (p.l += dt) < p.m);
+    const drag = Math.pow(0.05, dt);
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= drag; p.vy *= drag;
+      const life = 1 - p.l / p.m;
+      dot(p.x, p.y, p.r * (0.5 + life * 0.5), orbC, life * vis);
+    }
+
+    // click shockwave rings
+    waves = waves.filter((w) => now - w.t < WAVE_MS);
+    for (let i = 0; i < waves.length; i++) {
+      const w = waves[i], k = (now - w.t) / WAVE_MS;
+      ctx.globalAlpha = (1 - k) * vis;
+      ctx.strokeStyle = copperC;
+      ctx.lineWidth = (2.2 * (1 - k) + 0.4) * unit;
+      ctx.beginPath();
+      ctx.arc(w.x, w.y, (8 + k * 60) * unit, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // copper center dot (exactly at the pointer)
+    dot(mx, my, (3.2 + hc * 1.3) * unit * 1.6, copperC, 0.18 * vis); // glow
+    dot(mx, my, (3.2 + hc * 1.3) * unit, copperC, vis);
+    ctx.globalAlpha = 1;
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 })();
 
 // Hero photo tilt
