@@ -271,9 +271,16 @@
 // real heading (same size, same spot), then the two swap invisibly. Scroll only
 // drives a target value; the animation catches up with a frame-rate-independent
 // ease, so it stays smooth with a mouse wheel, trackpad, or fast flick.
+//
+// The pinned hero is taller than the animation needs: the intro plays during the
+// first ~90vh of scrolling, then the finished hero stays pinned for the rest
+// (a "hold" zone) so a fast scroll can't fly past it into the About section.
+//
+// On phones / small tablets / short windows (same query as the CSS) there is no
+// intro: the hero is just a normal stacked section.
 (function () {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const isMobile = window.matchMedia('(max-width:820px)').matches;
+  const compactMQ = window.matchMedia('(max-width: 820px), (max-height: 540px)');
   const headerEl = document.querySelector('header');
   const heroScroll = document.getElementById('heroScroll');
   const heroSection = document.getElementById('heroSection');
@@ -288,11 +295,8 @@
   }
   setHeaderHeightVar();
 
-  // CSS fallback (prefers-reduced-motion / max-width:820px) shows the final state
-  if (reduceMotion || isMobile) {
-    if (!reduceMotion) window.dispatchEvent(new Event('hero:landed'));
-    return;
-  }
+  // CSS fallback (prefers-reduced-motion) shows the final state
+  if (reduceMotion) return;
 
   // Each intro line is paired with the matching line of the real heading
   const introLines = Array.from(introCenter.querySelectorAll('.ln'));
@@ -319,10 +323,11 @@
 
   // Measured once (and on resize) so scrolling never forces a layout read
   let heroTopAbs = 0;
-  let scrollable = 1;
+  let scrollable = 1;   // scroll distance that drives the intro animation
   function measureScroll() {
     heroTopAbs = heroScroll.getBoundingClientRect().top + window.scrollY;
-    scrollable = heroScroll.offsetHeight - window.innerHeight;
+    const total = heroScroll.offsetHeight - window.innerHeight;       // whole pinned distance
+    scrollable = Math.max(Math.min(window.innerHeight * 0.9, total), 0); // animation part; the rest is the hold zone
   }
 
   function getProgress() {
@@ -333,6 +338,7 @@
   const local = (p, s, e) => Math.min(Math.max((p - s) / (e - s), 0), 1);
   const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
+  let mode = null;      // 'full' (scroll-driven intro) or 'compact' (plain stacked hero)
   let landed = false;
 
   let lastApplied = -1;
@@ -374,6 +380,7 @@
   let last = 0;
 
   function frame(now) {
+    if (mode !== 'full') { running = false; return; }
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
     const target = getProgress();
@@ -385,14 +392,37 @@
   }
 
   function kick() {
-    if (running) return;
+    if (running || mode !== 'full') return;
     running = true;
     last = performance.now();
     requestAnimationFrame(frame);
   }
 
-  function onResize() {
+  // Remove everything the intro wrote inline so the CSS (compact layout) takes over
+  function clearInline() {
+    introLines.forEach((el) => { el.style.transform = ''; });
+    introCenter.style.opacity = '';
+    introCenter.style.visibility = '';
+    introCenter.style.transform = '';
+    heroHeading.style.opacity = '';
+    revealItems.forEach((el) => { el.style.opacity = ''; el.style.transform = ''; });
+    if (scrollCue) scrollCue.style.opacity = '';
+  }
+
+  // Runs on load, resize, rotate and font load: picks the mode and re-measures
+  function sync() {
     setHeaderHeightVar();
+    if (compactMQ.matches) {
+      if (mode !== 'compact') {
+        mode = 'compact';
+        clearInline();
+        lastApplied = -1;
+        landed = false;
+        window.dispatchEvent(new Event('hero:landed')); // start the name typing effect
+      }
+      return;
+    }
+    mode = 'full';
     measureScroll();
     recomputeDelta();
     lastApplied = -1;
@@ -400,14 +430,18 @@
     applyProgress(currentP);
   }
 
-  measureScroll();
-  recomputeDelta();
-  currentP = getProgress();
-  applyProgress(currentP);
+  let resizeRaf = 0;
+  function onResize() {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(sync);
+  }
+
+  sync();
   window.addEventListener('scroll', kick, { passive: true });
   window.addEventListener('resize', onResize);
-  window.addEventListener('load', onResize);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
+  window.addEventListener('orientationchange', onResize);
+  window.addEventListener('load', sync);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync);
 })();
 
 // Theme toggle
@@ -739,13 +773,25 @@
 // Satellites lag behind elastically, spin faster (and widen) over interactive
 // elements, and get a short spin burst on click. Extras: a copper shockwave ring
 // on click and a trail of fading stardust while the mouse moves.
-// One small canvas, one rAF loop.
+//
+// Built so it can't take the page down:
+//  - only runs for a real mouse/trackpad (hover + fine pointer); a touch switches it off
+//  - the canvas pixel count is capped (no giant canvas on 4K / high-DPI screens)
+//  - each frame clears only the small area it drew in, not the whole screen
+//  - the loop sleeps when the mouse is outside the window
+//  - if the device is too slow, or anything throws, it turns itself off for good
+//    and the normal cursor comes back (the native cursor is only hidden while
+//    html has the .orbit-cursor-on class)
 (function () {
-  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+  if (!finePointer.matches) return;
 
   const canvas = document.querySelector('.cursor-orbit-canvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
+  let ctx = null;
+  try { ctx = canvas.getContext('2d'); } catch (err) { ctx = null; }
+  if (!ctx) return;
+
   const root = document.documentElement;
   const hoverSelector = 'a, button, .skill-card, .proj-card, input, textarea, [role="button"]';
 
@@ -759,16 +805,23 @@
   const TRAIL = 6;        // trail length (frames)
   const DUST_MIN_SPEED = 120; // px/s before stardust starts shedding
   const DUST_CHANCE = 0.3;    // per satellite, per frame
-  const MAX_PARTS = 140;      // safety cap
+  const MAX_PARTS = 100;      // safety cap
+  const MAX_WAVES = 5;        // safety cap
   const WAVE_MS = 650;        // click shockwave duration
+  const MAX_CANVAS_PX = 4200000; // canvas pixel budget (~1080p at 2x)
 
+  let alive = true;   // false once switched off for good
+  let rafId = 0;
+
+  // ---- sizing --------------------------------------------------------------
+  let cw = 0, ch = 0, needFull = true;
   let unit = 1, tealC = '#3EC9A7', copperC = '#C17F45';
   let tealRGB = [62, 201, 167], copperRGB = [193, 127, 69];
   const parseHex = (v, fb) => {
     const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
     if (!m) return fb;
     let x = m[1];
-    if (x.length === 3) x = x.split('').map((ch) => ch + ch).join('');
+    if (x.length === 3) x = x.split('').map((ch2) => ch2 + ch2).join('');
     return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16)];
   };
   function readTheme() {
@@ -780,16 +833,18 @@
     copperRGB = parseHex(copperC, copperRGB);
   }
   function resize() {
-    const d = window.devicePixelRatio || 1;
-    canvas.width = Math.round(innerWidth * d);
-    canvas.height = Math.round(innerHeight * d);
+    cw = window.innerWidth; ch = window.innerHeight;
+    const wanted = Math.min(window.devicePixelRatio || 1, 2);
+    const budget = Math.sqrt(MAX_CANVAS_PX / Math.max(cw * ch, 1));
+    const d = Math.max(1, Math.min(wanted, budget));
+    canvas.width = Math.round(cw * d);
+    canvas.height = Math.round(ch * d);
     ctx.setTransform(d, 0, 0, d, 0, 0);
+    needFull = true;
     readTheme();
   }
-  resize();
-  addEventListener('resize', resize);
-  new MutationObserver(readTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
 
+  // ---- state ---------------------------------------------------------------
   let mx = -100, my = -100, pmx = -100, pmy = -100;
   let cx = -100, cy = -100;
   let hover = false, hc = 0, vel = 0, impulse = 0, vis = 0, inside = true, seen = false;
@@ -798,113 +853,203 @@
   let parts = [];  // stardust
   let waves = [];  // click shockwaves
 
+  // ---- dirty rectangle: remember what was drawn so only that is cleared ----
+  let prevBox = null, box = null;
+  function mark(x, y, r) {
+    if (!box) { box = { x0: x - r, y0: y - r, x1: x + r, y1: y + r }; return; }
+    if (x - r < box.x0) box.x0 = x - r;
+    if (y - r < box.y0) box.y0 = y - r;
+    if (x + r > box.x1) box.x1 = x + r;
+    if (y + r > box.y1) box.y1 = y + r;
+  }
+  function dot(x, y, r, color, alpha) {
+    const rr = Math.max(r, 0.1);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, rr, 0, Math.PI * 2);
+    ctx.fill();
+    mark(x, y, rr);
+  }
+
+  // ---- on / off ------------------------------------------------------------
+  function kill() {
+    if (!alive) return;
+    alive = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    root.classList.remove('orbit-cursor-on'); // native cursor comes back, canvas hides
+    canvas.width = 1; canvas.height = 1;      // release the canvas memory
+  }
+  function wake() {
+    if (!alive || rafId) return;
+    last = performance.now();
+    rafId = requestAnimationFrame(frame);
+  }
+
+  // ---- events --------------------------------------------------------------
   document.addEventListener('mousemove', (e) => {
+    if (!alive) return;
     mx = e.clientX; my = e.clientY;
-    hover = !!e.target.closest(hoverSelector);
+    const t = e.target;
+    hover = !!(t && t.closest && t.closest(hoverSelector));
     if (!seen) {
       seen = true;
       cx = pmx = mx; cy = pmy = my;
       dots.forEach((d) => { d.x = mx; d.y = my; d.h.length = 0; });
     }
     inside = true;
+    wake();
   }, { passive: true });
   document.addEventListener('mousedown', () => {
+    if (!alive) return;
     impulse = 9;
-    if (seen) waves.push({ x: mx, y: my, t: performance.now() });
+    if (seen && waves.length < MAX_WAVES) waves.push({ x: mx, y: my, t: performance.now() });
+    wake();
   });
-  document.documentElement.addEventListener('mouseleave', () => { inside = false; });
-  document.documentElement.addEventListener('mouseenter', () => { inside = true; });
+  root.addEventListener('mouseleave', () => { inside = false; wake(); });
+  root.addEventListener('mouseenter', () => { inside = true; wake(); });
 
-  function dot(x, y, r, color, alpha) {
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(r, 0.1), 0, Math.PI * 2);
-    ctx.fill();
+  // A real touch means this isn't a mouse-only device: give the native cursor back.
+  window.addEventListener('touchstart', kill, { once: true, passive: true });
+  if (finePointer.addEventListener) {
+    finePointer.addEventListener('change', (e) => { if (!e.matches) kill(); });
   }
 
+  let resizeRaf = 0;
+  window.addEventListener('resize', () => {
+    if (!alive) return;
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => { if (alive) { resize(); wake(); } });
+  });
+  new MutationObserver(() => { if (alive) readTheme(); })
+    .observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---- main loop -----------------------------------------------------------
   let last = performance.now();
+  let sampled = 0, slow = 0, strikes = 0; // tiny frame-rate watchdog
+
   function frame(now) {
-    const dt = Math.min((now - last) / 1000, 0.05);
-    last = now;
+    rafId = 0;
+    if (!alive) return;
+    try {
+      const raw = (now - last) / 1000;
+      const dt = Math.min(raw, 0.05);
+      last = now;
 
-    vel += (Math.hypot(mx - pmx, my - pmy) / Math.max(dt, 0.001) - vel) * Math.min(1, dt * 10);
-    pmx = mx; pmy = my;
-    hc += ((hover ? 1 : 0) - hc) * Math.min(1, dt * 10);
-    vis += ((inside && seen ? 1 : 0) - vis) * Math.min(1, dt * 12);
-    impulse *= Math.pow(0.02, dt);
-    cx += (mx - cx) * Math.min(1, dt * 22);
-    cy += (my - cy) * Math.min(1, dt * 22);
-
-    radius += ((hover ? R_HOVER : R_NORMAL) - radius) * Math.min(1, dt * 8);
-    const target = SPEED * (1 + (HOVER_BOOST - 1) * hc) + Math.min(vel / 500, 2) + impulse;
-    spin += (target - spin) * Math.min(1, dt * 7);
-    angle += spin * dt;
-
-    ctx.clearRect(0, 0, innerWidth, innerHeight);
-    // satellites blend teal -> copper while hovering something interactive
-    const orbC = 'rgb(' + tealRGB.map((v, k) => Math.round(v + (copperRGB[k] - v) * hc)).join(',') + ')';
-    const trailLen = Math.round(TRAIL * (1 + hc * 0.8));
-    const sz = DOT * unit * (1 + hc * 0.35);
-
-    for (let i = 0; i < N; i++) {
-      const d = dots[i];
-      const a = angle + i * Math.PI * 2 / N;
-      const tx = cx + Math.cos(a) * radius * unit;
-      const ty = cy + Math.sin(a) * radius * unit;
-      const f = Math.min(1, dt * (7 + i * 1.5)); // each satellite lags a bit differently
-      d.x += (tx - d.x) * f; d.y += (ty - d.y) * f;
-
-      d.h.push({ x: d.x, y: d.y });
-      while (d.h.length > trailLen) d.h.shift();
-      for (let j = 0; j < d.h.length; j++) {
-        const q = j / d.h.length;
-        dot(d.h[j].x, d.h[j].y, sz * q * 0.8, orbC, q * 0.45 * vis);
+      // Watchdog: ~4s of bad frame rate (<20fps) in a row => switch the effect off.
+      // (Long gaps are a hidden tab, not a slow device, so they are ignored.)
+      if (raw > 0 && raw < 0.25) {
+        sampled++;
+        if (raw > 0.05) slow++;
+        if (sampled >= 120) {
+          strikes = slow > 60 ? strikes + 1 : 0;
+          sampled = 0; slow = 0;
+          if (strikes >= 2) { kill(); return; }
+        }
       }
-      dot(d.x, d.y, sz * 2.2, orbC, 0.12 * vis); // soft halo
-      dot(d.x, d.y, sz, orbC, vis);
 
-      // stardust: shed tiny particles while the mouse is moving
-      if (vel > DUST_MIN_SPEED && parts.length < MAX_PARTS && Math.random() < DUST_CHANCE) {
-        parts.push({
-          x: d.x, y: d.y,
-          vx: (Math.random() - 0.5) * 40 * unit, vy: (Math.random() - 0.5) * 40 * unit,
-          l: 0, m: 0.7 + Math.random() * 0.5, r: 1.6 * unit
-        });
+      vel += (Math.hypot(mx - pmx, my - pmy) / Math.max(dt, 0.001) - vel) * Math.min(1, dt * 10);
+      pmx = mx; pmy = my;
+      hc += ((hover ? 1 : 0) - hc) * Math.min(1, dt * 10);
+      const visTarget = inside && seen ? 1 : 0;
+      vis += (visTarget - vis) * Math.min(1, dt * 12);
+      impulse *= Math.pow(0.02, dt);
+      cx += (mx - cx) * Math.min(1, dt * 22);
+      cy += (my - cy) * Math.min(1, dt * 22);
+
+      radius += ((hover ? R_HOVER : R_NORMAL) - radius) * Math.min(1, dt * 8);
+      const target = SPEED * (1 + (HOVER_BOOST - 1) * hc) + Math.min(vel / 500, 2) + impulse;
+      spin += (target - spin) * Math.min(1, dt * 7);
+      angle += spin * dt;
+
+      // clear only what the last frame drew
+      if (needFull) { ctx.clearRect(0, 0, cw, ch); needFull = false; }
+      else if (prevBox) ctx.clearRect(prevBox.x0 - 2, prevBox.y0 - 2, prevBox.x1 - prevBox.x0 + 4, prevBox.y1 - prevBox.y0 + 4);
+      box = null;
+
+      const hidden = vis < 0.004;
+      if (!hidden) {
+        // satellites blend teal -> copper while hovering something interactive
+        const orbC = 'rgb(' + tealRGB.map((v, k) => Math.round(v + (copperRGB[k] - v) * hc)).join(',') + ')';
+        const trailLen = Math.round(TRAIL * (1 + hc * 0.8));
+        const sz = DOT * unit * (1 + hc * 0.35);
+
+        for (let i = 0; i < N; i++) {
+          const d = dots[i];
+          const a = angle + i * Math.PI * 2 / N;
+          const tx = cx + Math.cos(a) * radius * unit;
+          const ty = cy + Math.sin(a) * radius * unit;
+          const f = Math.min(1, dt * (7 + i * 1.5)); // each satellite lags a bit differently
+          d.x += (tx - d.x) * f; d.y += (ty - d.y) * f;
+
+          d.h.push({ x: d.x, y: d.y });
+          while (d.h.length > trailLen) d.h.shift();
+          for (let j = 0; j < d.h.length; j++) {
+            const q = j / d.h.length;
+            dot(d.h[j].x, d.h[j].y, sz * q * 0.8, orbC, q * 0.45 * vis);
+          }
+          dot(d.x, d.y, sz * 2.2, orbC, 0.12 * vis); // soft halo
+          dot(d.x, d.y, sz, orbC, vis);
+
+          // stardust: shed tiny particles while the mouse is moving
+          if (vel > DUST_MIN_SPEED && parts.length < MAX_PARTS && Math.random() < DUST_CHANCE) {
+            parts.push({
+              x: d.x, y: d.y,
+              vx: (Math.random() - 0.5) * 40 * unit, vy: (Math.random() - 0.5) * 40 * unit,
+              l: 0, m: 0.7 + Math.random() * 0.5, r: 1.6 * unit
+            });
+          }
+        }
+
+        // update + draw stardust
+        parts = parts.filter((p) => (p.l += dt) < p.m);
+        const drag = Math.pow(0.05, dt);
+        for (let i = 0; i < parts.length; i++) {
+          const p = parts[i];
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          p.vx *= drag; p.vy *= drag;
+          const life = 1 - p.l / p.m;
+          dot(p.x, p.y, p.r * (0.5 + life * 0.5), orbC, life * vis);
+        }
+
+        // click shockwave rings
+        waves = waves.filter((w) => now - w.t < WAVE_MS);
+        for (let i = 0; i < waves.length; i++) {
+          const w = waves[i], k = (now - w.t) / WAVE_MS;
+          const lw = (2.2 * (1 - k) + 0.4) * unit;
+          const wr = (8 + k * 60) * unit;
+          ctx.globalAlpha = (1 - k) * vis;
+          ctx.strokeStyle = copperC;
+          ctx.lineWidth = lw;
+          ctx.beginPath();
+          ctx.arc(w.x, w.y, wr, 0, Math.PI * 2);
+          ctx.stroke();
+          mark(w.x, w.y, wr + lw);
+        }
+
+        // copper center dot (exactly at the pointer)
+        dot(mx, my, (3.2 + hc * 1.3) * unit * 1.6, copperC, 0.18 * vis); // glow
+        dot(mx, my, (3.2 + hc * 1.3) * unit, copperC, vis);
+        ctx.globalAlpha = 1;
+      } else {
+        parts.length = 0;
+        waves.length = 0;
       }
+      prevBox = box;
+
+      // Mouse is outside the window and everything has faded out: sleep until it comes back
+      if (visTarget === 0 && hidden) return;
+    } catch (err) {
+      kill();
+      return;
     }
-
-    // update + draw stardust
-    parts = parts.filter((p) => (p.l += dt) < p.m);
-    const drag = Math.pow(0.05, dt);
-    for (let i = 0; i < parts.length; i++) {
-      const p = parts[i];
-      p.x += p.vx * dt; p.y += p.vy * dt;
-      p.vx *= drag; p.vy *= drag;
-      const life = 1 - p.l / p.m;
-      dot(p.x, p.y, p.r * (0.5 + life * 0.5), orbC, life * vis);
-    }
-
-    // click shockwave rings
-    waves = waves.filter((w) => now - w.t < WAVE_MS);
-    for (let i = 0; i < waves.length; i++) {
-      const w = waves[i], k = (now - w.t) / WAVE_MS;
-      ctx.globalAlpha = (1 - k) * vis;
-      ctx.strokeStyle = copperC;
-      ctx.lineWidth = (2.2 * (1 - k) + 0.4) * unit;
-      ctx.beginPath();
-      ctx.arc(w.x, w.y, (8 + k * 60) * unit, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // copper center dot (exactly at the pointer)
-    dot(mx, my, (3.2 + hc * 1.3) * unit * 1.6, copperC, 0.18 * vis); // glow
-    dot(mx, my, (3.2 + hc * 1.3) * unit, copperC, vis);
-    ctx.globalAlpha = 1;
-
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+
+  resize();
+  root.classList.add('orbit-cursor-on');
+  // the loop starts on the first mouse move (wake)
 })();
 
 // Hero photo tilt

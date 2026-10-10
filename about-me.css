@@ -1,22 +1,10 @@
 /* About section animations
-   1) Reading fill: the About paragraphs light up word by word.
-   2) Education timeline: the line draws itself and each level appears as it arrives.
-   3) kerby.info panel: row highlight on hover.
+   1) Education timeline: the line draws itself and each level appears as it arrives.
+   2) kerby.info panel: row highlight on hover.
+   (The word-by-word reading fill on the About paragraphs was removed.)
    Linked AFTER style.css so it overrides the old timeline styles. */
 
-/* 1) Reading fill (the .rf-w spans are created by about-me.js) */
-.rf-w { opacity: .3; }
-/* The text loops together with the timeline (same 10.6s cycle, same eduFade keyframes):
-   words fill in one by one, hold, fade out quickly, then about-me.js resets the words
-   while the paragraphs are hidden and the fill starts again. */
-.about-text.visible > p { animation: eduFade 10.6s linear 1.4s infinite both; }
-.about-text.visible:not(.rf-reset) .rf-w {
-  animation: rfFill .7s ease-out forwards;
-  animation-delay: calc(var(--i) * 65ms + 300ms);
-}
-@keyframes rfFill { to { opacity: 1; } }
-
-/* 2) Education timeline: line draw, on a slow loop.
+/* 1) Education timeline: line draw, on a slow loop.
    One cycle = 10.6s: the line draws level by level (slow, same pace as before),
    holds, then fades out QUICKLY (0.35s) and comes right back (~0.25s pause).
    To change the draw speed, edit the keyframe percentages; to change the fade-out
@@ -104,7 +92,7 @@
   .about-text.visible .edu-item:nth-child(2)::before { animation: eduLineY2 10.6s linear 1.4s infinite both; }
 }
 
-/* 3) kerby.info: row highlight on hover */
+/* 2) kerby.info: row highlight on hover */
 .sysinfo .row {
   position: relative;
   margin: 0 -0.75rem;
@@ -132,9 +120,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rf-w { opacity: 1; }
-  .about-text.visible .rf-w { animation: none; }
-  .about-text.visible > p { animation: none; }
   .edu-item { opacity: 1; }
   .edu-dot { transform: none; }
   .edu-item::before { transform: none; }

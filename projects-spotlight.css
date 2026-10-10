@@ -258,7 +258,7 @@
   text-align: center;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
   .spotlight-slide { flex-basis: 100%; margin-right: 1rem; grid-template-columns: 1fr; min-height: 0; }
   .spotlight-code { border-right: none; border-bottom: 1px solid var(--border); max-height: none; padding: 1rem; }
   .mockwin { min-height: 0; }
@@ -293,12 +293,16 @@
 /* Desktop: show the current project plus only the picture of the next one.
    The viewport is cut right where the next card's picture column ends, so none
    of the next project's text shows. */
-@media (min-width: 861px) {
+@media (min-width: 1101px) {
   .spotlight-viewport { clip-path: inset(0 calc(7.9% - 1.375rem) 0 0); }
 }
 
-@media (max-width: 860px) {
-  .mock-shot { flex: none; aspect-ratio: 872 / 1018; }
+@media (max-width: 1100px) {
+  /* stacked card on tablets: keep the picture a sensible height instead of full-width tall */
+  .mock-shot { flex: none; aspect-ratio: auto; height: clamp(18rem, 55vh, 30rem); }
+}
+@media (max-width: 600px) {
+  .mock-shot { aspect-ratio: 872 / 1018; height: auto; }
 }
 
 /* "Coming soon" teaser card after the last project (not counted, not navigable) */

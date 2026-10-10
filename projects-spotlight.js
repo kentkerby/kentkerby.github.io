@@ -201,6 +201,21 @@
     else { press(els.next); go(1); }
   });
 
+  // Swipe left / right on touch screens
+  let touchX = null, touchY = null;
+  els.viewport.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    touchX = t.clientX; touchY = t.clientY;
+  }, { passive: true });
+  els.viewport.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchX, dy = t.clientY - touchY;
+    touchX = touchY = null;
+    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.2) return; // too short, or mostly vertical
+    if (dx < 0) { press(els.next); go(1); } else { press(els.prev); go(-1); }
+  }, { passive: true });
+
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
