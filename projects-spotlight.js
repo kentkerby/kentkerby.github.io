@@ -1,9 +1,8 @@
-// Project spotlight — a peeking carousel. The current project sits in the
-// viewport with a sliver of the next one visible at the edge, and the track
-// slides smoothly between them. It does NOT use the infinite-loop clone trick:
-// from the first project, "prev" slides the track through the middle projects
-// all the way to the last one, and from the last project, "next" slides back
-// through the middle projects to the first.
+// Project spotlight: a 3D coverflow with a focus effect. The active project
+// sits in the middle at full size; the previous/next ones are tilted, dimmed
+// and blurred at the sides. Hovering a side card brings it into focus (tap or
+// click it to bring it to the centre). It loops, autoplays while the section is
+// on screen, and pauses on hover/focus. Arrows, keyboard and swipe all work.
 (function () {
   const projects = [
     {
@@ -14,7 +13,7 @@
       demoUrl: 'LSPU-Voting-System/index.html',
       preview:
         '<div class="mock-app">' +
-          '<div class="mock-shot"><img src="assets/img/previews/Voting-preview.png" alt="LSPU Voting System login screen and vote flow" loading="lazy"></div>' +
+          '<div class="mock-shot"><img src="assets/img/previews/Voting-preview.png" alt="LSPU Voting System login screen and vote flow" width="872" height="1018" loading="lazy" decoding="async"></div>' +
         '</div>'
     },
     {
@@ -77,6 +76,12 @@
   };
   if (!els.track) return;
 
+  const N = projects.length;
+  const HALF = Math.floor(N / 2);
+  const AUTO_MS = 4800;
+  const canHover = window.matchMedia('(hover: hover)');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
   function pad(n) { return String(n).padStart(2, '0'); }
 
   function slideMarkup(p) {
@@ -94,93 +99,78 @@
     );
   }
 
-  // One slide per project, in order (no clones).
-  projects.forEach((p) => {
-    const slide = document.createElement('div');
-    slide.className = 'spotlight-slide';
-    slide.innerHTML = slideMarkup(p);
-    els.track.appendChild(slide);
+  let cur = 0;      // index of the project in focus (centre)
+  let hov = null;   // index of the card under the mouse
+  let timer = null;
+  let paused = false;
+  let inView = true;
+
+  const cards = projects.map((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'spotlight-slide';
+    el.innerHTML = slideMarkup(p);
+    els.track.appendChild(el);
+
+    el.addEventListener('mouseenter', () => { if (canHover.matches) { hov = i; render(); } });
+    el.addEventListener('mouseleave', () => { if (hov === i) { hov = null; render(); } });
+    el.addEventListener('click', (e) => {
+      if (i === cur) return;           // the centre card only reacts through its Live Demo button
+      e.preventDefault();
+      cur = i; render(); restart();
+    });
+    return el;
   });
 
-  // "Coming soon" teaser: sits after the last project so the end of the
-  // carousel doesn't look cut off. It is NOT a real project, so it isn't
-  // counted in 03 / 03 and the arrows never navigate to it.
-  const teaser = document.createElement('div');
-  teaser.className = 'spotlight-slide is-teaser';
-  teaser.setAttribute('aria-hidden', 'true');
-  teaser.innerHTML =
-    '<div class="spotlight-code"><div class="mockwin"><div class="mock-app">' +
-      '<div class="mock-titlebar">' +
-        '<span class="mock-dot r"></span><span class="mock-dot y"></span><span class="mock-dot g"></span>' +
-        '<span class="mock-name">next-project</span>' +
-      '</div>' +
-      '<div class="mock-screen mock-soon"><p class="mock-line muted">coming soon<span class="mock-cursor"></span></p></div>' +
-    '</div></div></div>' +
-    '<div class="spotlight-info"></div>';
-  els.track.appendChild(teaser);
+  // -1 = left of centre, 0 = centre, 1 = right of centre, anything else = hidden
+  function rel(i) { return (((i - cur + HALF) % N) + N) % N - HALF; }
 
-  let position = 0; // index of the current project (0 = first)
-  let animating = false;
-  let settleTimer;
+  function render(instant) {
+    cards.forEach((el, i) => {
+      const r = rel(i);
+      // A card that jumps from one side to the other would fly across the
+      // centre; instead it is moved while invisible and fades in at its new spot.
+      const jumped = el._r !== undefined && Math.abs(r - el._r) >= 2;
+      if (instant || jumped) el.classList.add('no-anim');
+      if (jumped) el.classList.add('is-flip');
 
-  const BASE_MS = 550;  // duration for moving one slide
-  const EXTRA_MS = 260; // extra time per additional slide passed through
+      el.classList.toggle('is-active', r === 0);
+      el.classList.toggle('is-prev', r === -1);
+      el.classList.toggle('is-next', r === 1);
+      el.classList.toggle('is-far', Math.abs(r) > 1);
+      el.classList.toggle('is-hover', hov === i);
+      el.classList.toggle('is-dimmed', hov === cur && i !== cur);
+      el.setAttribute('aria-hidden', r === 0 ? 'false' : 'true');
+      const demo = el.querySelector('.spotlight-demo-link');
+      if (demo) demo.tabIndex = r === 0 ? 0 : -1;
 
-  function updateCounter() {
-    els.counter.textContent = pad(position + 1) + ' / ' + pad(projects.length);
+      if (instant || jumped) {
+        void el.offsetWidth; // commit the new position before animations come back
+        el.classList.remove('no-anim', 'is-flip');
+      }
+      el._r = r;
+    });
+    els.counter.textContent = pad(cur + 1) + ' / ' + pad(N);
   }
 
-  function step() {
-    const first = els.track.children[0];
-    const gap = parseFloat(getComputedStyle(first).marginRight) || 0;
-    return first.getBoundingClientRect().width + gap;
+  // ---- autoplay ----
+  function stop() { clearInterval(timer); timer = null; }
+  function restart() {
+    stop();
+    if (N < 2 || paused || !inView || document.hidden || reduceMotion.matches) return;
+    timer = setInterval(() => { cur = (cur + 1) % N; render(); }, AUTO_MS);
   }
-
-  function apply(pos, animate, ms) {
-    if (!animate) els.track.classList.add('no-anim');
-    els.track.style.transitionDuration = animate && ms ? ms + 'ms' : '';
-    els.track.style.transform = 'translateX(' + (-pos * step()) + 'px)';
-    if (!animate) {
-      void els.track.offsetWidth; // force reflow so the jump is instant
-      els.track.classList.remove('no-anim');
-    }
+  function go(dir) {
+    if (N < 2) return;
+    cur = (cur + dir + N) % N;
+    render();
+    restart();
   }
-
-  apply(position, false);
-  updateCounter();
 
   function press(btn) {
     btn.classList.remove('pressed');
     void btn.offsetWidth;
     btn.classList.add('pressed');
   }
-
-  function settle() {
-    clearTimeout(settleTimer);
-    updateCounter();
-    animating = false;
-  }
-
-  function go(dir) {
-    if (animating || projects.length < 2) return;
-    // Past either end, travel the whole way across to the other end,
-    // sliding through every project in between.
-    let target = position + dir;
-    if (target < 0) target = projects.length - 1;
-    else if (target > projects.length - 1) target = 0;
-
-    const steps = Math.abs(target - position);
-    const ms = BASE_MS + (steps - 1) * EXTRA_MS;
-    animating = true;
-    position = target;
-    apply(position, true, ms);
-    settleTimer = setTimeout(settle, ms + 80); // safety net if transitionend never fires
-  }
-
-  els.track.addEventListener('transitionend', (e) => {
-    if (e.propertyName !== 'transform' || !animating) return;
-    settle();
-  });
 
   els.prev.addEventListener('click', () => { press(els.prev); go(-1); });
   els.next.addEventListener('click', () => { press(els.next); go(1); });
@@ -190,13 +180,27 @@
     });
   });
 
+  // pause while the mouse is over the carousel / arrows, or while something inside has focus
+  const pauseZone = els.viewport.parentElement;
+  pauseZone.addEventListener('mouseenter', () => { if (canHover.matches) { paused = true; stop(); } });
+  pauseZone.addEventListener('mouseleave', () => { paused = false; restart(); });
+  pauseZone.addEventListener('focusin', () => { paused = true; stop(); });
+  pauseZone.addEventListener('focusout', () => { paused = false; restart(); });
+  document.addEventListener('visibilitychange', restart);
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      inView = entries[0].isIntersecting;
+      restart();
+    }, { threshold: 0.25 }).observe(els.viewport);
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     const section = document.getElementById('projects');
     if (!section) return;
     const rect = section.getBoundingClientRect();
-    const inView = rect.top < window.innerHeight && rect.bottom > 0;
-    if (!inView) return;
+    if (!(rect.top < window.innerHeight && rect.bottom > 0)) return;
     if (e.key === 'ArrowLeft') { press(els.prev); go(-1); }
     else { press(els.next); go(1); }
   });
@@ -212,13 +216,10 @@
     const t = e.changedTouches[0];
     const dx = t.clientX - touchX, dy = t.clientY - touchY;
     touchX = touchY = null;
-    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.2) return; // too short, or mostly vertical
+    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
     if (dx < 0) { press(els.next); go(1); } else { press(els.prev); go(-1); }
   }, { passive: true });
 
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => apply(position, false), 120);
-  });
+  render(true);
+  restart();
 })();

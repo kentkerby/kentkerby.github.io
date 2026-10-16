@@ -1,0 +1,67 @@
+/* Icon strip (About) + categorized pill table (What I Use).
+   Linked AFTER style.css. Uses the site's theme variables, so dark/light both work. */
+
+/* 1) Icon strip */
+.tech-strip {
+  width: 100vw; margin-left: calc(50% - 50vw);
+  margin-top: 3rem; overflow: hidden; padding: 1.375rem 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+.tech-track { display: flex; width: max-content; animation: tech-scroll 70s linear infinite; }
+/* hover slow-down is eased in Skills.js (playbackRate), not an instant pause */
+.tech-group { display: flex; align-items: center; gap: 1.75rem; padding-right: 1.75rem; }
+.tech-item { display: inline-flex; color: var(--muted); transition: color .2s ease, transform .2s ease; }
+.tech-item svg { width: 1.25rem; height: 1.25rem; }
+.tech-item:hover { color: var(--copper); transform: translateY(-0.1875rem); }
+@keyframes tech-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .tech-track { animation: none; width: auto; flex-wrap: wrap; justify-content: center; }
+  .tech-group[aria-hidden="true"] { display: none; }
+  .tech-group { flex-wrap: wrap; justify-content: center; padding-right: 0; row-gap: 1.5rem; }
+}
+
+/* 2) What I Use: two columns of categorized pills */
+.skills-table { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem 3.5rem; }
+.st-title {
+  margin: 0 0 1.5rem; color: var(--text); text-transform: uppercase;
+  font-family: 'Archivo', 'Inter', sans-serif; font-weight: 800; letter-spacing: -0.01em;
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem); line-height: 1;
+}
+.st-group + .st-group { margin-top: 1.5rem; }
+.st-label {
+  margin: 0 0 0.75rem; color: var(--copper); text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.7188rem; font-weight: 700; letter-spacing: 0.08em;
+}
+.st-chips { display: flex; flex-wrap: wrap; gap: 0.625rem; }
+.skill-chip {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9375rem;
+  border: 1px solid var(--border-strong); border-radius: 62.4375rem; background: var(--surface);
+  color: var(--text); text-transform: uppercase; white-space: nowrap;
+  font-size: 0.7188rem; font-weight: 700; letter-spacing: 0.05em;
+  transition: border-color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.skill-chip svg { width: 1rem; height: 1rem; flex-shrink: 0; color: var(--teal); }
+.skill-chip:hover, .skill-chip:focus-visible {
+  outline: none; border-color: var(--copper); background: var(--surface-2); transform: translateY(-0.125rem);
+}
+@media (prefers-reduced-motion: reduce) { .skill-chip, .tech-item { transition: none; } }
+
+@media (max-width: 820px) {
+  .skills-table { grid-template-columns: minmax(0, 1fr); gap: 2.25rem; }
+  .tech-group { gap: 1.5rem; padding-right: 1.5rem; }
+  .tech-item svg { width: 1.5rem; height: 1.5rem; }
+}
+
+/* Strip sits right under the hero on the About page: full-width band */
+.about-view > .tech-strip {
+  width: 100%; margin: 0; padding: 1.375rem 0;
+  background: color-mix(in srgb, var(--surface) 45%, transparent);
+}
+.about-view > .tech-strip .tech-group { gap: 2.5rem; padding-right: 2.5rem; }
+.about-view > .tech-strip .tech-item svg { width: 1.375rem; height: 1.375rem; }
+@media (max-width: 40rem) {
+  .about-view > .tech-strip { padding: 1rem 0; }
+  .about-view > .tech-strip .tech-group { gap: 1.75rem; padding-right: 1.75rem; }
+  .about-view > .tech-strip .tech-item svg { width: 1.125rem; height: 1.125rem; }
+}

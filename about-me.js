@@ -31,7 +31,7 @@
   const CYCLE_MS = 10600;
   const RESET_BEFORE_END_MS = 150;
   const box = document.querySelector('.about-text');
-  const timeline = box && box.querySelector('.edu-timeline');
+  const timeline = document.querySelector('.edu-timeline');
   if (!timeline) return;
 
   let timer = null;

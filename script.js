@@ -1,5 +1,85 @@
+// Smooth scrolling (mouse wheel / trackpad): the page glides with inertia instead of jumping.
+// Touch screens keep their own native scrolling. Other code can call window.smoothScrollTo(y).
+(function () {
+  const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const enabled = fine && !reduce;
+  const TAU = 130;            // ms; bigger = longer, silkier glide
+  const WHEEL_SPEED = 1;      // 1 = same distance as a normal wheel
+  const root = document.documentElement;
+
+  let target = window.scrollY, current = window.scrollY, running = false, last = 0;
+  const maxScroll = () => Math.max(0, root.scrollHeight - window.innerHeight);
+  const clamp = (v) => Math.max(0, Math.min(maxScroll(), v));
+  const setY = (y) => window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+
+  function frame(now) {
+    const dt = Math.min(now - last, 50);
+    last = now;
+    current += (target - current) * (1 - Math.exp(-dt / TAU));
+    if (Math.abs(target - current) < 0.4) {
+      current = target;
+      running = false;
+    }
+    setY(current);
+    if (running) requestAnimationFrame(frame);
+  }
+  function run() {
+    if (running) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(frame);
+  }
+  function sync() { target = current = window.scrollY; running = false; }
+
+  window.smoothScrollTo = function (y) {
+    y = Math.max(0, y);
+    if (!enabled) { window.scrollTo({ top: y, behavior: 'smooth' }); return; }
+    if (!running) sync();
+    target = clamp(y);
+    run();
+  };
+  if (!enabled) return;
+
+  window.addEventListener('wheel', (e) => {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey) return;           // pinch-zoom / browser zoom
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;                // sideways swipes stay native
+    if (document.body.classList.contains('loading')) return;            // loading screen
+    if (e.target.closest && e.target.closest('textarea, select, .modal-overlay, [data-native-scroll]')) return;
+    e.preventDefault();
+    if (!running) sync();
+    const unit = e.deltaMode === 1 ? 32 : e.deltaMode === 2 ? window.innerHeight : 1;
+    target = clamp(target + e.deltaY * unit * WHEEL_SPEED);
+    run();
+  }, { passive: false });
+
+  // Scrollbar drag, keyboard, links, tab switches: follow whatever moved the page
+  window.addEventListener('scroll', () => {
+    if (Math.abs(window.scrollY - current) > 3) sync();
+  }, { passive: true });
+  window.addEventListener('about:toggled', sync);
+  window.addEventListener('resize', () => { target = clamp(target); });
+})();
+
+// Top bar (Home only): hidden at the very top, drops down when you start scrolling.
+// On the About page it stays visible so you can always go back.
+(function () {
+  const root = document.documentElement;
+  const aboutView = document.getElementById('aboutView');
+  const SHOW_AFTER = 40; // px scrolled before the bar drops down
+
+  function updateNavBar() {
+    const onHome = !aboutView || aboutView.hidden;
+    root.classList.toggle('nav-hidden', onHome && window.scrollY < SHOW_AFTER);
+  }
+  window.addEventListener('scroll', updateNavBar, { passive: true });
+  window.addEventListener('about:toggled', updateNavBar);
+  window.addEventListener('load', updateNavBar);
+  updateNavBar();
+})();
+
 // Loading screen
-// Shows on first load AND every time you come back to this tab after leaving it.
+// Shows only on first load / hard refresh (Ctrl+Shift+R). Switching tabs does NOT replay it.
 (function () {
   const loaderScreen = document.getElementById('loaderScreen');
   const loaderBarFill = document.getElementById('loaderBarFill');
@@ -9,55 +89,11 @@
   const skipFirst = params.get('fromdemo') === '1';
 
   let busy = !skipFirst;     // true while the loader is on screen
-  let wasHidden = false;
 
   // Don't let the page scroll behind the loader while it's showing
   const stop = (e) => { if (busy) e.preventDefault(); };
   loaderScreen.addEventListener('wheel', stop, { passive: false });
   loaderScreen.addEventListener('touchmove', stop, { passive: false });
-
-  // ---- Return-to-tab replay ----
-  const REPLAY_MS = 1200;
-
-  function replayLoader() {
-    if (busy) return;
-    busy = true;
-
-    loaderBarFill.style.transition = 'none';
-    loaderBarFill.style.width = '0%';
-    loaderStatus.textContent = 'loading...';
-    void loaderBarFill.offsetWidth;          // restart the bar from 0
-    loaderBarFill.style.transition = '';
-    loaderScreen.classList.remove('hidden'); // fade the loader back in
-
-    let p = 0;
-    const timer = setInterval(() => {
-      p = Math.min(p + (90 / (REPLAY_MS / 150)) * (0.7 + Math.random() * 0.6), 90);
-      loaderBarFill.style.width = p + '%';
-    }, 150);
-
-    setTimeout(() => {
-      clearInterval(timer);
-      loaderBarFill.style.width = '100%';
-      loaderStatus.textContent = 'ready';
-      setTimeout(() => {
-        loaderScreen.classList.add('hidden');
-        busy = false;
-      }, 350);
-    }, REPLAY_MS);
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      wasHidden = true;
-    } else if (wasHidden) {
-      wasHidden = false;
-      replayLoader();
-    }
-  });
-
-  // Back/forward cache restore counts as "coming back" too
-  window.addEventListener('pageshow', (e) => { if (e.persisted) replayLoader(); });
 
   // ---- First load ----
   // Skip loading screen when arriving via ?fromdemo=1
@@ -186,262 +222,92 @@
     if (window.location.hash) {
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.smoothScrollTo(0);
   });
 })();
 
-// Name heading: typing effect
-// The heading starts fully typed. It only starts its type/erase loop once the
-// intro has glided into place (the hero script fires "hero:landed"), so the
-// intro text always lands on identical, fully-visible text.
+// Home / About view
+// Home is just the intro screen. The hero + About block stays hidden until
+// "About" is clicked; clicking "Home" hides it again.
 (function () {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const nameEls = document.querySelectorAll('#heroHeading h1.name');
-  if (!nameEls.length || reduceMotion) return;
-
-  const lines = ['Kent Kerby', 'Mahipos'];
-  const TYPE_SPEED = 130;
-  const ERASE_SPEED = 70;
-  const HOLD_AFTER_TYPE = 2000;
-  const HOLD_AFTER_ERASE = 400;
-
-  nameEls.forEach((el) => {
-    let html = '';
-    lines.forEach((line, li) => {
-      html += '<span class="ln">';
-      for (const ch of line) {
-        html += `<span class="tc">${ch === ' ' ? '&nbsp;' : ch}</span>`;
-      }
-      html += '</span>';
-      if (li < lines.length - 1) html += '<br>';
-    });
-    el.innerHTML = html;
-
-    const chars = Array.from(el.querySelectorAll('.tc'));
-    let i = chars.length;
-    let typingIn = false;
-    let timer = null;
-
-    function showAll() {
-      chars.forEach((c) => { c.classList.remove('tc-hide'); c.classList.remove('tc-active'); });
-      i = chars.length;
-      typingIn = false;
-    }
-
-    function tick() {
-      if (typingIn) {
-        if (i < chars.length) {
-          chars.forEach((c) => c.classList.remove('tc-active'));
-          chars[i].classList.remove('tc-hide');
-          chars[i].classList.add('tc-active');
-          i++;
-          timer = setTimeout(tick, TYPE_SPEED);
-        } else {
-          chars.forEach((c) => c.classList.remove('tc-active'));
-          typingIn = false;
-          timer = setTimeout(tick, HOLD_AFTER_TYPE);
-        }
-      } else {
-        if (i > 0) {
-          i--;
-          chars[i].classList.add('tc-hide');
-          chars[i].classList.remove('tc-active');
-          timer = setTimeout(tick, ERASE_SPEED);
-        } else {
-          typingIn = true;
-          timer = setTimeout(tick, HOLD_AFTER_ERASE);
-        }
-      }
-    }
-
-    window.addEventListener('hero:landed', () => {
-      clearTimeout(timer);
-      showAll();
-      timer = setTimeout(tick, HOLD_AFTER_TYPE);
-    });
-    window.addEventListener('hero:left', () => {
-      clearTimeout(timer);
-      showAll();
-    });
-  });
-})();
-
-// Hero intro transition
-// The big centered name glides line-by-line and lands exactly on top of the
-// real heading (same size, same spot), then the two swap invisibly. Scroll only
-// drives a target value; the animation catches up with a frame-rate-independent
-// ease, so it stays smooth with a mouse wheel, trackpad, or fast flick.
-//
-// The pinned hero is taller than the animation needs: the intro plays during the
-// first ~90vh of scrolling, then the finished hero stays pinned for the rest
-// (a "hold" zone) so a fast scroll can't fly past it into the About section.
-//
-// On phones / small tablets / short windows (same query as the CSS) there is no
-// intro: the hero is just a normal stacked section.
-(function () {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const compactMQ = window.matchMedia('(max-width: 820px), (max-height: 540px)');
   const headerEl = document.querySelector('header');
-  const heroScroll = document.getElementById('heroScroll');
-  const heroSection = document.getElementById('heroSection');
-  const introCenter = document.getElementById('introCenter');
-  const heroHeading = document.getElementById('heroHeading');
-  const revealItems = Array.from(document.querySelectorAll('.reveal-item'));
-  const scrollCue = document.getElementById('scrollCue');
-  if (!heroScroll || !heroHeading) return;
+  const aboutView = document.getElementById('aboutView');
 
   function setHeaderHeightVar() {
     if (headerEl) document.documentElement.style.setProperty('--header-h', headerEl.offsetHeight + 'px');
   }
   setHeaderHeightVar();
+  window.addEventListener('resize', setHeaderHeightVar);
+  window.addEventListener('load', setHeaderHeightVar);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(setHeaderHeightVar);
+  if (!aboutView) return;
 
-  // CSS fallback (prefers-reduced-motion) shows the final state
-  if (reduceMotion) return;
+  const homeEl = document.getElementById('home');
+  const mainView = document.getElementById('mainView');
+  let open = false;
+  // About is its own "page": when open, Home + What I Use/Projects/Contact are hidden
+  function setOpen(v) {
+    if (v === open) return;
+    open = v;
+    aboutView.hidden = !v;
+    if (homeEl) homeEl.hidden = v;
+    if (mainView) mainView.hidden = v;
+    window.dispatchEvent(new Event(v ? 'hero:landed' : 'hero:left')); // name typing effect
+    window.dispatchEvent(new Event('about:toggled'));                  // scrollspy re-measure
+  }
 
-  // Each intro line is paired with the matching line of the real heading
-  const introLines = Array.from(introCenter.querySelectorAll('.ln'));
-  const heroLines = Array.from(heroHeading.querySelectorAll('.ln'));
-  const deltas = introLines.map(() => ({ dx: 0, dy: 0 }));
-
-  function recomputeDelta() {
-    const prev = introLines.map((el) => el.style.transform);
-    introLines.forEach((el) => { el.style.transform = 'none'; });
-    introCenter.style.transform = 'none';
+  function scrollToAbout() {
     const headerH = headerEl ? headerEl.offsetHeight : 0;
-    const heroTop = heroSection.getBoundingClientRect().top;
-    introLines.forEach((el, i) => {
-      const target = heroLines[i];
-      if (!target) return;
-      const ir = el.getBoundingClientRect();
-      const hr = target.getBoundingClientRect();
-      deltas[i].dx = hr.left - ir.left;
-      // measure relative to the hero section so it is correct at any scroll position
-      deltas[i].dy = (hr.top - heroTop) + headerH - ir.top;
+    const top = aboutView.getBoundingClientRect().top + window.scrollY - headerH;
+    window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+  }
+
+  document.querySelectorAll('a[href="#about"]').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      setOpen(true);
+      window.scrollTo({ top: 0, behavior: 'instant' });
     });
-    introLines.forEach((el, i) => { el.style.transform = prev[i]; });
+  });
+
+  // Any other link closes About first, then goes to its target
+  function jumpTo(selector, smooth) {
+    const el = selector === '#home' ? null : document.querySelector(selector);
+    const headerH = headerEl ? headerEl.offsetHeight : 0;
+    const top = el ? el.getBoundingClientRect().top + window.scrollY - headerH : 0;
+    if (smooth) window.smoothScrollTo(Math.max(top, 0));
+    else window.scrollTo({ top: Math.max(top, 0), behavior: 'instant' });
   }
-
-  // Measured once (and on resize) so scrolling never forces a layout read
-  let heroTopAbs = 0;
-  let scrollable = 1;   // scroll distance that drives the intro animation
-  function measureScroll() {
-    heroTopAbs = heroScroll.getBoundingClientRect().top + window.scrollY;
-    const total = heroScroll.offsetHeight - window.innerHeight;       // whole pinned distance
-    scrollable = Math.max(Math.min(window.innerHeight * 0.9, total), 0); // animation part; the rest is the hold zone
-  }
-
-  function getProgress() {
-    if (scrollable <= 0) return 1;
-    return Math.min(Math.max((window.scrollY - heroTopAbs) / scrollable, 0), 1);
-  }
-
-  const local = (p, s, e) => Math.min(Math.max((p - s) / (e - s), 0), 1);
-  const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-
-  let mode = null;      // 'full' (scroll-driven intro) or 'compact' (plain stacked hero)
-  let landed = false;
-
-  let lastApplied = -1;
-  function applyProgress(p) {
-    if (p === lastApplied) return;
-    lastApplied = p;
-    // 1) Intro lines glide to their final spot, slightly staggered
-    introLines.forEach((el, i) => {
-      const e = easeInOutCubic(local(p, i * 0.04, 0.58 + i * 0.04));
-      el.style.transform = `translate3d(${deltas[i].dx * e}px, ${deltas[i].dy * e}px, 0)`;
-    });
-
-    if (scrollCue) scrollCue.style.opacity = String(1 - local(p, 0, 0.08));
-
-    // 2) Swap: the real heading is already underneath, pixel-identical
-    heroHeading.style.opacity = String(local(p, 0.64, 0.70));
-    const introOpacity = 1 - local(p, 0.68, 0.72);
-    introCenter.style.opacity = String(introOpacity);
-    introCenter.style.visibility = introOpacity <= 0 ? 'hidden' : 'visible';
-
-    // 3) Rest of the hero cascades in as the name settles
-    revealItems.forEach((el) => {
-      const d = parseFloat(el.dataset.d || '0');
-      const s = 0.58 + d * 0.06;
-      const l = easeInOutCubic(local(p, s, s + 0.3));
-      el.style.opacity = String(l);
-      el.style.transform = `translate3d(0, ${22 * (1 - l)}px, 0)`;
-    });
-
-    // Tell the typing effect when to start / stop
-    if (!landed && p >= 0.72) { landed = true; window.dispatchEvent(new Event('hero:landed')); }
-    else if (landed && p < 0.6) { landed = false; window.dispatchEvent(new Event('hero:left')); }
-  }
-
-  // Frame-rate independent smoothing; the loop only runs while catching up
-  const CATCH_UP = 7; // higher = snappier, lower = floatier
-  let currentP = 0;
-  let running = false;
-  let last = 0;
-
-  function frame(now) {
-    if (mode !== 'full') { running = false; return; }
-    const dt = Math.min((now - last) / 1000, 0.05);
-    last = now;
-    const target = getProgress();
-    currentP += (target - currentP) * (1 - Math.exp(-dt * CATCH_UP));
-    if (Math.abs(target - currentP) < 0.0005) currentP = target;
-    applyProgress(currentP);
-    if (currentP !== target) requestAnimationFrame(frame);
-    else running = false;
-  }
-
-  function kick() {
-    if (running || mode !== 'full') return;
-    running = true;
-    last = performance.now();
-    requestAnimationFrame(frame);
-  }
-
-  // Remove everything the intro wrote inline so the CSS (compact layout) takes over
-  function clearInline() {
-    introLines.forEach((el) => { el.style.transform = ''; });
-    introCenter.style.opacity = '';
-    introCenter.style.visibility = '';
-    introCenter.style.transform = '';
-    heroHeading.style.opacity = '';
-    revealItems.forEach((el) => { el.style.opacity = ''; el.style.transform = ''; });
-    if (scrollCue) scrollCue.style.opacity = '';
-  }
-
-  // Runs on load, resize, rotate and font load: picks the mode and re-measures
-  function sync() {
-    setHeaderHeightVar();
-    if (compactMQ.matches) {
-      if (mode !== 'compact') {
-        mode = 'compact';
-        clearInline();
-        lastApplied = -1;
-        landed = false;
-        window.dispatchEvent(new Event('hero:landed')); // start the name typing effect
+  document.querySelectorAll('a[href="#home"], a[href="#skills"], a[href="#projects"], a[href="#contact"]').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = a.getAttribute('href');
+      if (open) {
+        setOpen(false);                       // layout shrinks, so jump instantly
+        requestAnimationFrame(() => jumpTo(target, false));
+      } else {
+        jumpTo(target, true);
       }
-      return;
-    }
-    mode = 'full';
-    measureScroll();
-    recomputeDelta();
-    lastApplied = -1;
-    currentP = getProgress();
-    applyProgress(currentP);
-  }
+    });
+  });
 
-  let resizeRaf = 0;
-  function onResize() {
-    cancelAnimationFrame(resizeRaf);
-    resizeRaf = requestAnimationFrame(sync);
-  }
+  // "Get in Touch" (in About) scrolls down to the contact section at the end of About
+  document.querySelectorAll('a[href="#aboutContact"]').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const el = document.getElementById('aboutContact');
+      if (!el) return;
+      const headerH = headerEl ? headerEl.offsetHeight : 0;
+      const top = el.getBoundingClientRect().top + window.scrollY - headerH;
+      window.smoothScrollTo(Math.max(top, 0));
+    });
+  });
 
-  sync();
-  window.addEventListener('scroll', kick, { passive: true });
-  window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', onResize);
-  window.addEventListener('load', sync);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync);
+  // Opened directly with kentkerby.me/#about
+  if (window.location.hash === '#about') {
+    setOpen(true);
+    window.addEventListener('load', () => window.scrollTo({ top: 0, behavior: 'instant' }));
+  }
 })();
 
 // Theme toggle
@@ -483,7 +349,7 @@
 
 // Scrollspy
 (function () {
-  const sections = Array.from(document.querySelectorAll('#about, #skills, #projects, #contact'));
+  const sections = Array.from(document.querySelectorAll('#home, #aboutView, #about, #skills, #projects, #contact'));
   const navLinks = document.querySelectorAll('.navlinks a');
   if (!sections.length || !navLinks.length) return;
 
@@ -505,7 +371,9 @@
     const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 72;
     spyLine = headerH + 8; // a little past the header edge
     const y = window.scrollY;
-    tops = sections.map((sec) => ({ id: sec.id, top: sec.getBoundingClientRect().top + y }));
+    tops = sections
+      .filter((sec) => sec.offsetParent !== null) // skip About while it is hidden
+      .map((sec) => ({ id: sec.id === 'aboutView' ? 'about' : sec.id, top: sec.getBoundingClientRect().top + y }));
   }
 
   function updateActiveSection() {
@@ -533,6 +401,7 @@
   window.addEventListener('scroll', onSpyScroll, { passive: true });
   window.addEventListener('resize', remeasure);
   window.addEventListener('load', remeasure);
+  window.addEventListener('about:toggled', remeasure);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(remeasure);
   remeasure();
 })();
@@ -541,148 +410,17 @@
 (function () {
   const navToggle = document.getElementById('navToggle');
   const navlinks = document.getElementById('navlinks');
-  navToggle.addEventListener('click', () => navlinks.classList.toggle('open'));
-  navlinks.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => navlinks.classList.remove('open')));
-})();
-
-// Skills marquee: one scrolling row per category
-(function () {
-  const skillGroups = [
-    { label: 'Languages', skills: ['C#', 'Java', 'Python', 'JavaScript', 'TypeScript'] },
-    { label: 'Frontend',  skills: ['HTML', 'CSS', 'React', 'React Native', 'Expo'] },
-    { label: 'Backend',   skills: ['Supabase', 'Node.js'] },
-    { label: 'Tools',     skills: ['VS Code', 'Git'] }
-  ];
-
-  const skillIcons = {
-    'C#': 'assets/logos/csharp.png',
-    'Java': 'assets/logos/java.png',
-    'Python': 'assets/logos/python.png',
-    'JavaScript': 'assets/logos/javascript.png',
-    'TypeScript': 'assets/logos/typescript.png',
-    'HTML': 'assets/logos/html.png',
-    'CSS': 'assets/logos/css.png',
-    'React': 'assets/logos/react.png',
-    'React Native': 'assets/logos/reactnative.png',
-    'Expo': 'assets/logos/expo.png',
-    'Supabase': 'assets/logos/supabase.png',
-    'Node.js': 'assets/logos/nodejs.png',
-    'VS Code': 'assets/logos/vscode.png',
-    'Git': 'assets/logos/git.png'
-  };
-
-  const skillDescriptions = {
-    'C#': 'Object-oriented language used for console apps like the ATM system and calculator projects.',
-    'Java': 'General-purpose OOP language used for building structured, class-based applications.',
-    'Python': 'Versatile language used for scripting, automation, and general programming practice.',
-    'JavaScript': 'Scripting language used to add interactivity, like this site\u2019s theme toggle and cursor effects.',
-    'TypeScript': 'Typed superset of JavaScript that catches bugs early, used in the LSPU Voting System.',
-    'HTML': 'Markup language used to structure the content and layout of web pages.',
-    'CSS': 'Stylesheet language used to design, layout, and theme web pages like this portfolio.',
-    'React': 'JavaScript library for building component-based user interfaces.',
-    'React Native': 'Framework for building mobile apps with React, used for the LSPU Voting System.',
-    'Expo': 'Toolkit for building, running, and testing React Native apps, used for the LSPU Voting System.',
-    'Supabase': 'Open-source backend with authentication and a Postgres database, used for sign-in and vote storage in the LSPU Voting System.',
-    'Node.js': 'JavaScript runtime that powers development tools like npm and Expo.',
-    'VS Code': 'Main code editor used for writing, debugging, and running projects.',
-    'Git': 'Version control system used to track changes and manage project history.'
-  };
-
-  // Skills section: filter pills (All / Languages / Frontend / ...) over one grid of cards
-  const marquee = document.querySelector('.skills-marquee');
-  if (!marquee) return;
-
-  const allSkills = [];
-  skillGroups.forEach((group) => {
-    group.skills.forEach((name) => allSkills.push({ name, group: group.label }));
+  function setOpen(open) {
+    navlinks.classList.toggle('open', open);
+    navToggle.setAttribute('aria-expanded', String(open));
+    navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
+  navToggle.addEventListener('click', () => setOpen(!navlinks.classList.contains('open')));
+  navlinks.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setOpen(false)));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && navlinks.classList.contains('open')) { setOpen(false); navToggle.focus(); }
   });
-
-  marquee.innerHTML =
-    '<div class="skills-filters" id="skillsFilters"></div>' +
-    '<div class="skills-grid" id="skillsGrid"></div>';
-  const filters = document.getElementById('skillsFilters');
-  const grid = document.getElementById('skillsGrid');
-
-  let currentFilter = 'All';
-
-  function renderFilters() {
-    filters.innerHTML = ['All', ...skillGroups.map((g) => g.label)].map((label) =>
-      `<button type="button" class="skills-pill${label === currentFilter ? ' active' : ''}" data-filter="${label}" aria-pressed="${label === currentFilter}">${label}</button>`
-    ).join('');
-  }
-
-  function renderCards() {
-    const list = allSkills.filter((s) => currentFilter === 'All' || s.group === currentFilter);
-    grid.innerHTML = list.map((s, i) =>
-      `<div class="skill-card" data-skill="${s.name}" style="--i:${i}"><img src="${skillIcons[s.name]}" alt="${s.name} logo"><span>${s.name}</span></div>`
-    ).join('');
-  }
-
-  filters.addEventListener('click', (e) => {
-    const pill = e.target.closest('.skills-pill');
-    if (!pill || pill.dataset.filter === currentFilter) return;
-    currentFilter = pill.dataset.filter;
-    hideSkillTooltip();
-    renderFilters();
-    renderCards();
-  });
-
-  renderFilters();
-  renderCards();
-
-  // Tooltip: shows a short description above whichever card is hovered/tapped
-  const skillTooltip = document.getElementById('skillTooltip');
-  function positionSkillTooltip(card) {
-    const rect = card.getBoundingClientRect();
-    skillTooltip.style.left = (rect.left + rect.width / 2) + 'px';
-    skillTooltip.style.top = rect.top + 'px';
-  }
-
-  const isTouchDevice = !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-  let activeSkillCard = null;
-
-  function showSkillTooltip(card) {
-    const name = card.dataset.skill;
-    const desc = skillDescriptions[name];
-    if (!desc) return;
-    skillTooltip.innerHTML = `<strong>${name}</strong>${desc}`;
-    positionSkillTooltip(card);
-    skillTooltip.classList.add('visible');
-  }
-  function hideSkillTooltip() {
-    skillTooltip.classList.remove('visible');
-    activeSkillCard = null;
-  }
-
-  if (isTouchDevice) {
-    // First tap opens the tooltip, tapping the same card again closes it.
-    marquee.addEventListener('click', (e) => {
-      const card = e.target.closest('.skill-card');
-      if (!card) return;
-      if (activeSkillCard === card) {
-        hideSkillTooltip();
-      } else {
-        showSkillTooltip(card);
-        activeSkillCard = card;
-      }
-    });
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.skill-card')) hideSkillTooltip();
-    });
-  } else {
-    marquee.addEventListener('mouseover', (e) => {
-      const card = e.target.closest('.skill-card');
-      if (!card) return;
-      showSkillTooltip(card);
-    });
-    marquee.addEventListener('mouseout', (e) => {
-      const card = e.target.closest('.skill-card');
-      if (!card) return;
-      hideSkillTooltip();
-    });
-  }
 })();
-
 
 // Live Demo links: open via window.open() so the demo tab can self-close
 (function () {
@@ -700,10 +438,12 @@
 
 // Contact form: submits to Formspree via fetch
 (function () {
-  const form = document.getElementById('contactForm');
-  if (!form) return;
-  const statusEl = document.getElementById('cfStatus');
-  const submitBtn = document.getElementById('cfSubmit');
+  document.querySelectorAll('.contact-form').forEach(setupContactForm);
+})();
+
+function setupContactForm(form) {
+  const statusEl = form.querySelector('.form-status');
+  const submitBtn = form.querySelector('button[type="submit"]');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -742,12 +482,12 @@
       submitBtn.textContent = 'Send Message';
     }
   });
-})();
+}
 
 // Copy email button
 (function () {
-  const btn = document.getElementById('copyEmail');
-  if (!btn) return;
+  document.querySelectorAll('.copy-btn').forEach(setupCopyBtn);
+  function setupCopyBtn(btn) {
   let timer;
   btn.addEventListener('click', async () => {
     const email = btn.dataset.email;
@@ -767,330 +507,313 @@
     clearTimeout(timer);
     timer = setTimeout(() => btn.classList.remove('copied'), 1600);
   });
+  }
 })();
 
-// Custom cursor: copper center dot + 4 teal satellites that orbit it.
-// Satellites lag behind elastically, spin faster (and widen) over interactive
-// elements, and get a short spin burst on click. Extras: a copper shockwave ring
-// on click and a trail of fading stardust while the mouse moves.
-//
-// Built so it can't take the page down:
-//  - only runs for a real mouse/trackpad (hover + fine pointer); a touch switches it off
-//  - the canvas pixel count is capped (no giant canvas on 4K / high-DPI screens)
-//  - each frame clears only the small area it drew in, not the whole screen
-//  - the loop sleeps when the mouse is outside the window
-//  - if the device is too slow, or anything throws, it turns itself off for good
-//    and the normal cursor comes back (the native cursor is only hidden while
-//    html has the .orbit-cursor-on class)
-(function () {
-  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
-  if (!finePointer.matches) return;
-
-  const canvas = document.querySelector('.cursor-orbit-canvas');
-  if (!canvas) return;
-  let ctx = null;
-  try { ctx = canvas.getContext('2d'); } catch (err) { ctx = null; }
-  if (!ctx) return;
-
-  const root = document.documentElement;
-  const hoverSelector = 'a, button, .skill-card, .proj-card, input, textarea, [role="button"]';
-
-  // Tuning (in px at 100% root size; scaled by the site's rem scale)
-  const N = 4;            // number of satellites
-  const R_NORMAL = 22;    // orbit radius
-  const R_HOVER = 40;     // orbit radius over interactive elements
-  const SPEED = 2;        // rad/s
-  const HOVER_BOOST = 4;  // spin multiplier on hover
-  const DOT = 3;          // satellite radius
-  const TRAIL = 6;        // trail length (frames)
-  const DUST_MIN_SPEED = 120; // px/s before stardust starts shedding
-  const DUST_CHANCE = 0.3;    // per satellite, per frame
-  const MAX_PARTS = 100;      // safety cap
-  const MAX_WAVES = 5;        // safety cap
-  const WAVE_MS = 650;        // click shockwave duration
-  const MAX_CANVAS_PX = 4200000; // canvas pixel budget (~1080p at 2x)
-
-  let alive = true;   // false once switched off for good
-  let rafId = 0;
-
-  // ---- sizing --------------------------------------------------------------
-  let cw = 0, ch = 0, needFull = true;
-  let unit = 1, tealC = '#3EC9A7', copperC = '#C17F45';
-  let tealRGB = [62, 201, 167], copperRGB = [193, 127, 69];
-  const parseHex = (v, fb) => {
-    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
-    if (!m) return fb;
-    let x = m[1];
-    if (x.length === 3) x = x.split('').map((ch2) => ch2 + ch2).join('');
-    return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16)];
-  };
-  function readTheme() {
-    const cs = getComputedStyle(root);
-    unit = parseFloat(cs.fontSize) / 16 || 1;
-    tealC = cs.getPropertyValue('--cursor-accent').trim() || tealC;
-    copperC = cs.getPropertyValue('--copper').trim() || copperC;
-    tealRGB = parseHex(tealC, tealRGB);
-    copperRGB = parseHex(copperC, copperRGB);
-  }
-  function resize() {
-    cw = window.innerWidth; ch = window.innerHeight;
-    const wanted = Math.min(window.devicePixelRatio || 1, 2);
-    const budget = Math.sqrt(MAX_CANVAS_PX / Math.max(cw * ch, 1));
-    const d = Math.max(1, Math.min(wanted, budget));
-    canvas.width = Math.round(cw * d);
-    canvas.height = Math.round(ch * d);
-    ctx.setTransform(d, 0, 0, d, 0, 0);
-    needFull = true;
-    readTheme();
-  }
-
-  // ---- state ---------------------------------------------------------------
-  let mx = -100, my = -100, pmx = -100, pmy = -100;
-  let cx = -100, cy = -100;
-  let hover = false, hc = 0, vel = 0, impulse = 0, vis = 0, inside = true, seen = false;
-  let radius = R_NORMAL, spin = SPEED, angle = 0;
-  const dots = Array.from({ length: N }, () => ({ x: -100, y: -100, h: [] }));
-  let parts = [];  // stardust
-  let waves = [];  // click shockwaves
-
-  // ---- dirty rectangle: remember what was drawn so only that is cleared ----
-  let prevBox = null, box = null;
-  function mark(x, y, r) {
-    if (!box) { box = { x0: x - r, y0: y - r, x1: x + r, y1: y + r }; return; }
-    if (x - r < box.x0) box.x0 = x - r;
-    if (y - r < box.y0) box.y0 = y - r;
-    if (x + r > box.x1) box.x1 = x + r;
-    if (y + r > box.y1) box.y1 = y + r;
-  }
-  function dot(x, y, r, color, alpha) {
-    const rr = Math.max(r, 0.1);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, rr, 0, Math.PI * 2);
-    ctx.fill();
-    mark(x, y, rr);
-  }
-
-  // ---- on / off ------------------------------------------------------------
-  function kill() {
-    if (!alive) return;
-    alive = false;
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = 0;
-    root.classList.remove('orbit-cursor-on'); // native cursor comes back, canvas hides
-    canvas.width = 1; canvas.height = 1;      // release the canvas memory
-  }
-  function wake() {
-    if (!alive || rafId) return;
-    last = performance.now();
-    rafId = requestAnimationFrame(frame);
-  }
-
-  // ---- events --------------------------------------------------------------
-  document.addEventListener('mousemove', (e) => {
-    if (!alive) return;
-    mx = e.clientX; my = e.clientY;
-    const t = e.target;
-    hover = !!(t && t.closest && t.closest(hoverSelector));
-    if (!seen) {
-      seen = true;
-      cx = pmx = mx; cy = pmy = my;
-      dots.forEach((d) => { d.x = mx; d.y = my; d.h.length = 0; });
-    }
-    inside = true;
-    wake();
-  }, { passive: true });
-  document.addEventListener('mousedown', () => {
-    if (!alive) return;
-    impulse = 9;
-    if (seen && waves.length < MAX_WAVES) waves.push({ x: mx, y: my, t: performance.now() });
-    wake();
-  });
-  root.addEventListener('mouseleave', () => { inside = false; wake(); });
-  root.addEventListener('mouseenter', () => { inside = true; wake(); });
-
-  // A real touch means this isn't a mouse-only device: give the native cursor back.
-  window.addEventListener('touchstart', kill, { once: true, passive: true });
-  if (finePointer.addEventListener) {
-    finePointer.addEventListener('change', (e) => { if (!e.matches) kill(); });
-  }
-
-  let resizeRaf = 0;
-  window.addEventListener('resize', () => {
-    if (!alive) return;
-    cancelAnimationFrame(resizeRaf);
-    resizeRaf = requestAnimationFrame(() => { if (alive) { resize(); wake(); } });
-  });
-  new MutationObserver(() => { if (alive) readTheme(); })
-    .observe(root, { attributes: true, attributeFilter: ['data-theme'] });
-
-  // ---- main loop -----------------------------------------------------------
-  let last = performance.now();
-  let sampled = 0, slow = 0, strikes = 0; // tiny frame-rate watchdog
-
-  function frame(now) {
-    rafId = 0;
-    if (!alive) return;
-    try {
-      const raw = (now - last) / 1000;
-      const dt = Math.min(raw, 0.05);
-      last = now;
-
-      // Watchdog: ~4s of bad frame rate (<20fps) in a row => switch the effect off.
-      // (Long gaps are a hidden tab, not a slow device, so they are ignored.)
-      if (raw > 0 && raw < 0.25) {
-        sampled++;
-        if (raw > 0.05) slow++;
-        if (sampled >= 120) {
-          strikes = slow > 60 ? strikes + 1 : 0;
-          sampled = 0; slow = 0;
-          if (strikes >= 2) { kill(); return; }
-        }
-      }
-
-      vel += (Math.hypot(mx - pmx, my - pmy) / Math.max(dt, 0.001) - vel) * Math.min(1, dt * 10);
-      pmx = mx; pmy = my;
-      hc += ((hover ? 1 : 0) - hc) * Math.min(1, dt * 10);
-      const visTarget = inside && seen ? 1 : 0;
-      vis += (visTarget - vis) * Math.min(1, dt * 12);
-      impulse *= Math.pow(0.02, dt);
-      cx += (mx - cx) * Math.min(1, dt * 22);
-      cy += (my - cy) * Math.min(1, dt * 22);
-
-      radius += ((hover ? R_HOVER : R_NORMAL) - radius) * Math.min(1, dt * 8);
-      const target = SPEED * (1 + (HOVER_BOOST - 1) * hc) + Math.min(vel / 500, 2) + impulse;
-      spin += (target - spin) * Math.min(1, dt * 7);
-      angle += spin * dt;
-
-      // clear only what the last frame drew
-      if (needFull) { ctx.clearRect(0, 0, cw, ch); needFull = false; }
-      else if (prevBox) ctx.clearRect(prevBox.x0 - 2, prevBox.y0 - 2, prevBox.x1 - prevBox.x0 + 4, prevBox.y1 - prevBox.y0 + 4);
-      box = null;
-
-      const hidden = vis < 0.004;
-      if (!hidden) {
-        // satellites blend teal -> copper while hovering something interactive
-        const orbC = 'rgb(' + tealRGB.map((v, k) => Math.round(v + (copperRGB[k] - v) * hc)).join(',') + ')';
-        const trailLen = Math.round(TRAIL * (1 + hc * 0.8));
-        const sz = DOT * unit * (1 + hc * 0.35);
-
-        for (let i = 0; i < N; i++) {
-          const d = dots[i];
-          const a = angle + i * Math.PI * 2 / N;
-          const tx = cx + Math.cos(a) * radius * unit;
-          const ty = cy + Math.sin(a) * radius * unit;
-          const f = Math.min(1, dt * (7 + i * 1.5)); // each satellite lags a bit differently
-          d.x += (tx - d.x) * f; d.y += (ty - d.y) * f;
-
-          d.h.push({ x: d.x, y: d.y });
-          while (d.h.length > trailLen) d.h.shift();
-          for (let j = 0; j < d.h.length; j++) {
-            const q = j / d.h.length;
-            dot(d.h[j].x, d.h[j].y, sz * q * 0.8, orbC, q * 0.45 * vis);
-          }
-          dot(d.x, d.y, sz * 2.2, orbC, 0.12 * vis); // soft halo
-          dot(d.x, d.y, sz, orbC, vis);
-
-          // stardust: shed tiny particles while the mouse is moving
-          if (vel > DUST_MIN_SPEED && parts.length < MAX_PARTS && Math.random() < DUST_CHANCE) {
-            parts.push({
-              x: d.x, y: d.y,
-              vx: (Math.random() - 0.5) * 40 * unit, vy: (Math.random() - 0.5) * 40 * unit,
-              l: 0, m: 0.7 + Math.random() * 0.5, r: 1.6 * unit
-            });
-          }
-        }
-
-        // update + draw stardust
-        parts = parts.filter((p) => (p.l += dt) < p.m);
-        const drag = Math.pow(0.05, dt);
-        for (let i = 0; i < parts.length; i++) {
-          const p = parts[i];
-          p.x += p.vx * dt; p.y += p.vy * dt;
-          p.vx *= drag; p.vy *= drag;
-          const life = 1 - p.l / p.m;
-          dot(p.x, p.y, p.r * (0.5 + life * 0.5), orbC, life * vis);
-        }
-
-        // click shockwave rings
-        waves = waves.filter((w) => now - w.t < WAVE_MS);
-        for (let i = 0; i < waves.length; i++) {
-          const w = waves[i], k = (now - w.t) / WAVE_MS;
-          const lw = (2.2 * (1 - k) + 0.4) * unit;
-          const wr = (8 + k * 60) * unit;
-          ctx.globalAlpha = (1 - k) * vis;
-          ctx.strokeStyle = copperC;
-          ctx.lineWidth = lw;
-          ctx.beginPath();
-          ctx.arc(w.x, w.y, wr, 0, Math.PI * 2);
-          ctx.stroke();
-          mark(w.x, w.y, wr + lw);
-        }
-
-        // copper center dot (exactly at the pointer)
-        dot(mx, my, (3.2 + hc * 1.3) * unit * 1.6, copperC, 0.18 * vis); // glow
-        dot(mx, my, (3.2 + hc * 1.3) * unit, copperC, vis);
-        ctx.globalAlpha = 1;
-      } else {
-        parts.length = 0;
-        waves.length = 0;
-      }
-      prevBox = box;
-
-      // Mouse is outside the window and everything has faded out: sleep until it comes back
-      if (visTarget === 0 && hidden) return;
-    } catch (err) {
-      kill();
-      return;
-    }
-    rafId = requestAnimationFrame(frame);
-  }
-
-  resize();
-  root.classList.add('orbit-cursor-on');
-  // the loop starts on the first mouse move (wake)
-})();
-
-// Hero photo tilt
+// Hero photo: "comet card" effect (3D tilt + lift on hover)
 (function () {
   const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!canHover || reduceMotion) return;
 
   const photoFrame = document.querySelector('.hero .photo-frame');
-  const photoTiltImg = document.querySelector('#photoTilt img');
-  if (!photoFrame || !photoTiltImg) return;
+  const card = document.getElementById('photoTilt');
+  if (!photoFrame || !card) return;
 
-  const MAX_TILT = 8; // degrees, kept subtle
-  let targetX = 0, targetY = 0;
-  let curX = 0, curY = 0;
+  const MAX_TILT = 14;   // degrees (raise for a stronger tilt)
+  const LIFT = 28;       // px the card rises toward you on hover
+  const SCALE = 1.04;    // how much the card grows on hover
+  let tX = 0, tY = 0, tZ = 0, tS = 1;   // targets
+  let cX = 0, cY = 0, cZ = 0, cS = 1;   // current (eased)
+  let running = false;
 
-  // Listen on the whole frame so tilt responds near the edges
-  let tiltRunning = false;
-  function startTilt() { if (!tiltRunning) { tiltRunning = true; requestAnimationFrame(tiltTick); } }
+  function start() { if (!running) { running = true; requestAnimationFrame(tick); } }
+
+  // Listen on the outer frame (it doesn't move), so the hit area stays stable while the card tilts
+  photoFrame.addEventListener('mouseenter', () => {
+    card.classList.add('is-hover');
+    tZ = LIFT; tS = SCALE;
+    start();
+  });
 
   photoFrame.addEventListener('mousemove', (e) => {
-    startTilt();
     const rect = photoFrame.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;
-    const py = (e.clientY - rect.top) / rect.height;
-    targetY = (px - 0.5) * MAX_TILT * 2;  // left/right cursor -> rotateY
-    targetX = -(py - 0.5) * MAX_TILT * 2; // up/down cursor -> rotateX
+    const px = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const py = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    tY = (px - 0.5) * MAX_TILT * 2;    // left/right -> rotateY
+    tX = -(py - 0.5) * MAX_TILT * 2;   // up/down -> rotateX
+    start();
   });
 
   photoFrame.addEventListener('mouseleave', () => {
-    targetX = 0;
-    targetY = 0;
-    startTilt();
+    card.classList.remove('is-hover');
+    tX = 0; tY = 0; tZ = 0; tS = 1;
+    start();
   });
 
-  function tiltTick() {
-    curX += (targetX - curX) * 0.12;
-    curY += (targetY - curY) * 0.12;
-    photoTiltImg.style.transform = `rotateX(${curX.toFixed(2)}deg) rotateY(${curY.toFixed(2)}deg)`;
-    const settled = Math.abs(targetX - curX) < 0.01 && Math.abs(targetY - curY) < 0.01;
-    if (settled) { tiltRunning = false; return; }
-    requestAnimationFrame(tiltTick);
+  function tick() {
+    cX += (tX - cX) * 0.12;
+    cY += (tY - cY) * 0.12;
+    cZ += (tZ - cZ) * 0.12;
+    cS += (tS - cS) * 0.12;
+    card.style.transform =
+      `rotateX(${cX.toFixed(2)}deg) rotateY(${cY.toFixed(2)}deg) translateZ(${cZ.toFixed(1)}px) scale(${cS.toFixed(3)})`;
+    const settled = Math.abs(tX - cX) < 0.01 && Math.abs(tY - cY) < 0.01 &&
+                    Math.abs(tZ - cZ) < 0.05 && Math.abs(tS - cS) < 0.0005;
+    if (settled) { running = false; return; }
+    requestAnimationFrame(tick);
   }
+})();
+
+
+// "Let's work together" heading: letters rise in a wave, tied to scroll position
+(function () {
+  const titles = Array.from(document.querySelectorAll('.wave-title'));
+  if (!titles.length) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SPREAD = 1.3; // how far the wave is spread across the letters (bigger = slower, more visible wave)
+
+  const items = titles.map((title) => {
+    const letters = [];
+    title.querySelectorAll('.cta-line, .cta-accent').forEach((line, li) => {
+      const text = line.textContent;
+      line.setAttribute('aria-hidden', 'true');
+      line.textContent = '';
+      const chars = Array.from(text);
+      chars.forEach((ch, i) => {
+        const span = document.createElement('span');
+        span.className = 'wch';
+        span.textContent = ch === ' ' ? '\u00A0' : ch;
+        line.appendChild(span);
+        letters.push({ el: span, idx: (i / Math.max(chars.length - 1, 1)) + li * 0.15 });
+      });
+    });
+    return { title, letters };
+  });
+
+  function render(item) {
+    const r = item.title.getBoundingClientRect();
+    if (!r.height) return; // hidden (the other page)
+    const vh = window.innerHeight;
+    // The wave runs while the heading travels from just entering the screen up to ~30% from the top.
+    // If the page can't scroll that far, it ends exactly at the bottom of the page (no sudden jump).
+    const maxScroll = document.documentElement.scrollHeight - vh;
+    const topAtMax = r.top + window.scrollY - maxScroll;
+    const end = Math.max(vh * 0.3, topAtMax + 4);
+    const start = Math.max(vh * 1.0, end + 300);
+    let p = (start - r.top) / (start - end);
+    if (reduce) p = 1;
+    p = Math.max(0, Math.min(1, p));
+    item.letters.forEach((l) => {
+      const t = Math.max(0, Math.min(1, p * (1 + SPREAD) - l.idx * SPREAD));
+      const e = 1 - Math.pow(1 - t, 3);
+      l.el.style.transform = 'translateY(' + ((1 - e) * 105).toFixed(1) + '%)';
+      l.el.style.opacity = (0.15 + 0.85 * e).toFixed(2);
+    });
+  }
+
+  let ticking = false;
+  function update() { items.forEach(render); }
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { update(); ticking = false; });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  window.addEventListener('load', update);
+  window.addEventListener('about:toggled', update);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(update);
+  update();
+})();
+
+// Home enter animation: when you come back to Home, the social pills drop in from the right
+// (sliding left) and the name letters rise from right to left, with a soft blur-to-sharp.
+(function () {
+  const home = document.getElementById('home');
+  if (!home) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  home.querySelectorAll('.social-pill').forEach((pill, i, all) => {
+    pill.style.setProperty('--p', all.length - 1 - i);   // rightmost pill goes first
+  });
+  const lines = home.querySelectorAll('h1.name .ln');
+  lines.forEach((line, li) => {
+    const chars = Array.from(line.textContent);
+    line.setAttribute('aria-hidden', 'true');
+    line.textContent = '';
+    chars.forEach((ch, i) => {
+      const span = document.createElement('span');
+      span.className = 'hc';
+      span.textContent = ch === ' ' ? '\u00A0' : ch;
+      span.style.setProperty('--d', (chars.length - 1 - i) + li * 2); // rightmost letter goes first
+      line.appendChild(span);
+    });
+  });
+  const h1 = home.querySelector('h1.name');
+  if (h1) h1.setAttribute('aria-label', 'Kent Kerby Mahipos');
+
+  let timer;
+  function play() {
+    if (reduce) return;
+    clearTimeout(timer);
+    home.classList.remove('home-enter');
+    void home.offsetWidth;                 // restart the animation
+    home.classList.add('home-enter');
+    timer = setTimeout(() => home.classList.remove('home-enter'), 3200);
+  }
+  window.addEventListener('hero:left', play);   // fired when About closes and Home shows again
+
+  // First load / hard reload (Ctrl+Shift+R): play it once the loading screen is gone
+  function whenLoaded(cb) {
+    if (!document.body.classList.contains('loading')) { cb(); return; }
+    const mo = new MutationObserver(() => {
+      if (!document.body.classList.contains('loading')) { mo.disconnect(); cb(); }
+    });
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+  whenLoaded(play);
+})();
+
+// Home role line ("Aspiring Full Stack Web Developer"): encrypted-text effect.
+// Every time the Home button (or the <Kerby/> logo) is clicked, the text shows as gibberish
+// and gets revealed letter by letter, left to right.
+(function () {
+  const el = document.querySelector('#home .role .ln');
+  const aboutView = document.getElementById('aboutView');
+  if (!el) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const FINAL = el.textContent.trim();
+  const CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=<>?/';
+  const REVEAL_MS = 35;   // time between each letter being revealed (lower = faster)
+  const FLIP_MS = 30;     // how fast the gibberish letters change
+  const rand = () => CHARSET[Math.floor(Math.random() * CHARSET.length)];
+
+  el.setAttribute('aria-label', FINAL);
+  let raf = 0, startTimer = 0;
+
+  function render(revealed, scrambled) {
+    let html = '';
+    for (let i = 0; i < FINAL.length; i++) {
+      const ch = FINAL[i];
+      if (ch === ' ' || i < revealed) html += ch === ' ' ? ' ' : ch;
+      else html += '<span class="enc-x">' + scrambled[i] + '</span>';
+    }
+    el.innerHTML = html;
+  }
+
+  function play(delay) {
+    cancelAnimationFrame(raf);
+    clearTimeout(startTimer);
+    const scrambled = Array.from(FINAL, rand);
+    render(0, scrambled);                      // gibberish right away, no flash of the real text
+    startTimer = setTimeout(() => {
+      const t0 = performance.now();
+      let lastFlip = 0;
+      (function frame(now) {
+        const t = now - t0;
+        const revealed = Math.min(FINAL.length, Math.floor(t / REVEAL_MS));
+        if (t - lastFlip >= FLIP_MS) {
+          for (let i = 0; i < scrambled.length; i++) scrambled[i] = rand();
+          lastFlip = t;
+        }
+        if (revealed >= FINAL.length) { el.textContent = FINAL; return; }
+        render(revealed, scrambled);
+        raf = requestAnimationFrame(frame);
+      })(t0);
+    }, delay);
+  }
+
+  // Capture phase: read whether About was open BEFORE the nav handlers close it
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest && e.target.closest('a[href="#home"]');
+    if (!link) return;
+    const comingFromAbout = aboutView && !aboutView.hidden;
+    // from About, the role line slides in after 1s (home-enter), so wait for that
+    play(comingFromAbout ? 1000 : 0);
+  }, true);
+
+  // First load / hard reload: scramble now (hidden under the loader), reveal once it is gone
+  function whenLoaded(cb) {
+    if (!document.body.classList.contains('loading')) { cb(); return; }
+    const mo = new MutationObserver(() => {
+      if (!document.body.classList.contains('loading')) { mo.disconnect(); cb(); }
+    });
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+  whenLoaded(() => play(1000));
+})();
+
+// Home name: "text hover" effect.
+// The name is an outlined SVG text. Hovering it reveals a teal -> copper gradient outline
+// that follows the cursor. The outline also draws itself in when the page loads and
+// every time Home is clicked.
+(function () {
+  const svg = document.getElementById('htName');
+  if (!svg) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const aboutView = document.getElementById('aboutView');
+  const outlines = Array.from(svg.querySelectorAll('.ht-outline'));
+  const gradients = [svg.querySelector('#htGrad'), svg.querySelector('#htReveal')];
+
+  // ---- cursor-following reveal (positions are % of the svg box) ----
+  let tx = 50, ty = 50, cx = 50, cy = 50, running = false;
+  function apply() {
+    gradients.forEach((g) => { g.setAttribute('cx', cx.toFixed(2) + '%'); g.setAttribute('cy', cy.toFixed(2) + '%'); });
+  }
+  function tick() {
+    cx += (tx - cx) * 0.28;
+    cy += (ty - cy) * 0.28;
+    apply();
+    if (Math.abs(tx - cx) < 0.05 && Math.abs(ty - cy) < 0.05) { running = false; return; }
+    requestAnimationFrame(tick);
+  }
+  function aim(e) {
+    const r = svg.getBoundingClientRect();
+    tx = ((e.clientX - r.left) / r.width) * 100;
+    ty = ((e.clientY - r.top) / r.height) * 100;
+  }
+  svg.addEventListener('pointerenter', (e) => {
+    aim(e); cx = tx; cy = ty; apply();        // start right under the cursor
+    svg.classList.add('is-hover');
+  });
+  svg.addEventListener('pointermove', (e) => {
+    aim(e);
+    if (!running) { running = true; requestAnimationFrame(tick); }
+  });
+  svg.addEventListener('pointerleave', () => svg.classList.remove('is-hover'));
+
+  // ---- outline draws itself in ----
+  function drawIn(delay) {
+    if (reduce) return;
+    outlines.forEach((t) => {
+      if (!t.animate) return;
+      t.animate(
+        [
+          { strokeDasharray: '1000', strokeDashoffset: 1000 },
+          { strokeDasharray: '1000', strokeDashoffset: 0 }
+        ],
+        { duration: 2800, delay: delay, easing: 'ease-in-out', fill: 'backwards' }
+      );
+    });
+  }
+
+  // first load: wait until the loading screen is gone
+  if (document.body.classList.contains('loading')) {
+    const mo = new MutationObserver(() => {
+      if (!document.body.classList.contains('loading')) { mo.disconnect(); drawIn(600); }
+    });
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  } else {
+    drawIn(600);
+  }
+
+  // every Home click (capture phase: read whether About was open before it closes)
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest && e.target.closest('a[href="#home"]');
+    if (!link) return;
+    const fromAbout = aboutView && !aboutView.hidden;
+    drawIn(fromAbout ? 600 : 0);
+  }, true);
 })();

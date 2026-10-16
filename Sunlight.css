@@ -1,0 +1,97 @@
+/* ==========================================================================
+   Soft teal light background (no visible rays) — matched to the portfolio palette.
+   Uses the site's own tokens (--bg, --copper, --teal), so dark/light mode follows
+   the theme toggle automatically. Pure CSS: no JavaScript file needed.
+   ========================================================================== */
+
+/* Colours per theme: all-teal light, built from your existing --teal token */
+html[data-theme="dark"] {
+  --sl-core: color-mix(in srgb, var(--teal) 35%, #d6fff3);     /* hot centre of the light  */
+  --sl-warm: color-mix(in srgb, var(--teal) 80%, #19e0c4);     /* main teal light          */
+  --sl-cool: color-mix(in srgb, var(--teal) 60%, #0b7f8f);     /* deeper teal haze         */
+  --sl-blend: screen;
+  --sl-k: 1;                                                   /* overall strength         */
+}
+html[data-theme="light"] {
+  --sl-core: color-mix(in srgb, var(--teal) 18%, #dcfbf2);
+  --sl-warm: color-mix(in srgb, var(--teal) 28%, #8fe3cc);
+  --sl-cool: color-mix(in srgb, var(--teal) 45%, #8fe3cc);
+  --sl-blend: normal;
+  --sl-k: .8;
+}
+
+.sunlight {
+  --x: 100%;                         /* light comes from the top-RIGHT. Use .sunlight--left for top-left */
+  position: fixed; inset: 0; z-index: -1;
+  overflow: hidden; pointer-events: none;
+  background: var(--bg); isolation: isolate;
+  transition: background .25s ease;
+}
+.sunlight i {
+  position: absolute; display: block; border-radius: 50%;
+  filter: blur(55px); mix-blend-mode: var(--sl-blend); will-change: transform, opacity;
+}
+
+/* the sun itself, breathing in the corner */
+.sl-core {
+  top: -18vmax; left: calc(var(--x) - 17vmax); width: 34vmax; height: 34vmax;
+  background: radial-gradient(circle, var(--sl-core) 0%, var(--sl-warm) 35%, transparent 70%);
+  opacity: calc(.85 * var(--sl-k));
+  animation: sl-breathe 3s ease-in-out infinite alternate;
+}
+/* wide warm wash that wanders around */
+.sl-wash {
+  top: -30vmax; left: calc(var(--x) - 45vmax); width: 90vmax; height: 70vmax;
+  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--sl-warm) 55%, transparent) 0%, transparent 62%);
+  opacity: calc(.55 * var(--sl-k));
+  animation: sl-wind1 5s ease-in-out infinite alternate;
+}
+/* deeper teal haze for depth */
+.sl-tint {
+  top: 8vmax; left: calc(var(--x) - 38vmax); width: 50vmax; height: 40vmax;
+  background: radial-gradient(circle, color-mix(in srgb, var(--sl-cool) 55%, transparent), transparent 65%);
+  opacity: calc(.35 * var(--sl-k));
+  animation: sl-wind2 6s ease-in-out infinite alternate;
+}
+/* long soft "curtains" of light swaying like a breeze (blurred, so no hard lines) */
+.sl-drift {
+  width: 95vmax; height: 26vmax; top: -6vmax; left: calc(var(--x) - 80vmax);
+  transform-origin: 80% 20%; filter: blur(48px);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--sl-warm) 60%, transparent) 55%, color-mix(in srgb, var(--sl-core) 70%, transparent) 100%);
+}
+.sl-d1 { --r: 34deg; animation: sl-sway 3.5s ease-in-out infinite alternate; }
+.sl-d2 { --r: 48deg; height: 20vmax; animation: sl-sway 4.5s ease-in-out -2s infinite alternate-reverse; }
+.sl-d3 { --r: 62deg; height: 22vmax; filter: blur(60px); animation: sl-sway 6s ease-in-out -3s infinite alternate; }
+
+/* optional: light from the top-left instead */
+.sunlight--left { --x: 0%; }
+.sunlight--left .sl-drift {
+  transform-origin: 20% 20%; left: calc(var(--x) - 15vmax);
+  background: linear-gradient(270deg, transparent, color-mix(in srgb, var(--sl-warm) 60%, transparent) 55%, color-mix(in srgb, var(--sl-core) 70%, transparent) 100%);
+}
+.sunlight--left .sl-d1 { --r: -34deg; }
+.sunlight--left .sl-d2 { --r: -48deg; }
+.sunlight--left .sl-d3 { --r: -62deg; }
+
+/* fine grain so the soft gradients never show banding */
+.sunlight::after {
+  content: ""; position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@keyframes sl-breathe { from { transform: scale(.7);  opacity: calc(.4 * var(--sl-k)); } to { transform: scale(1.35); opacity: calc(1 * var(--sl-k)); } }
+@keyframes sl-sway {
+  0%   { transform: rotate(calc(var(--r) - 24deg)) translateX(-22%); opacity: calc(.12 * var(--sl-k)); }
+  100% { transform: rotate(calc(var(--r) + 24deg)) translateX(22%);  opacity: calc(.95 * var(--sl-k)); }
+}
+@keyframes sl-wind1 { from { transform: translate(-16vmax, -4vmax) scale(.8); } to { transform: translate(14vmax, 10vmax) scale(1.3); } }
+@keyframes sl-wind2 { from { transform: translate(-10vmax, -4vmax) scale(.9); } to { transform: translate(18vmax, 14vmax) scale(1.35); } }
+
+/* lighter on phones */
+@media (max-width: 820px) {
+  .sunlight i { filter: blur(36px); }
+  .sl-drift { filter: blur(32px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sunlight i { animation: none; }
+}
