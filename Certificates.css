@@ -88,7 +88,8 @@ html[data-theme="light"] .cert-grid { --dim: brightness(.9) saturate(.8); }
 .cert-box {
   position: relative;
   margin: 0;
-  width: min(92vw, 62rem, calc((100vh - 9rem) * 1.476));
+  width: min(92vw, 62rem, calc((100vh - 9rem) * 1.476));    /* fallback */
+  width: min(92vw, 62rem, calc((100dvh - 9rem) * 1.476));
   transition: transform .55s cubic-bezier(.22, 1, .36, 1), opacity .35s ease;
 }
 .cert-box img {
@@ -96,6 +97,7 @@ html[data-theme="light"] .cert-grid { --dim: brightness(.9) saturate(.8); }
   width: 100%;
   height: auto;
   aspect-ratio: 1938 / 1313;
+  object-fit: contain;
   background: var(--surface);
   border-radius: 0.5rem;
   box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, .5);
@@ -111,8 +113,8 @@ html[data-theme="light"] .cert-grid { --dim: brightness(.9) saturate(.8); }
 .cert-box figcaption span { color: #A9B7B3; }
 .cert-close {
   position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
+  top: max(1.25rem, env(safe-area-inset-top, 0px));
+  right: max(1.25rem, env(safe-area-inset-right, 0px));
   width: 2.5rem;
   height: 2.5rem;
   display: flex;
@@ -125,7 +127,16 @@ html[data-theme="light"] .cert-grid { --dim: brightness(.9) saturate(.8); }
   cursor: pointer;
   transition: border-color .2s ease, color .2s ease;
 }
-.cert-close:hover, .cert-close:focus-visible { border-color: #3EC9A7; color: #3EC9A7; outline: none; }
+@media (hover: hover) { .cert-close:hover { border-color: #3EC9A7; color: #3EC9A7; } }
+.cert-close:focus-visible { border-color: #3EC9A7; color: #3EC9A7; outline: none; }
+/* touch: invisible 44x44px tap area around the close button */
+@media (pointer: coarse) { .cert-close::after { content: ''; position: absolute; inset: -0.25rem; } }
+
+/* short screens (landscape phones): give the certificate more of the height */
+@media (max-height: 33.75rem) {
+  .cert-box { width: min(92vw, 62rem, calc((100vh - 6rem) * 1.476)); width: min(92vw, 62rem, calc((100dvh - 6rem) * 1.476)); }
+  .cert-box figcaption { margin-top: 0.5rem; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .cert-card, .cert-lightbox, .cert-box { transition: none; }

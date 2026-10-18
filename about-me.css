@@ -11,7 +11,8 @@
    speed, edit the eduFade keyframes. If you change the cycle length, change every "10.6s" below. */
 .edu-item { opacity: 0; }
 .edu-dot { transform: scale(0); }
-.edu-item::before { transform: scaleX(0); transform-origin: left center; }
+/* phones / small tablets: the line runs top-to-bottom */
+.edu-item::before { transform: scaleY(0); transform-origin: top center; }
 
 .edu-wrap.visible .edu-timeline { animation: eduFade 10.6s linear 1.4s infinite both; }
 .edu-wrap.visible .edu-item:nth-child(1) { animation: eduItem1 10.6s linear 1.4s infinite both; }
@@ -20,8 +21,8 @@
 .edu-wrap.visible .edu-item:nth-child(1) .edu-dot { animation: eduDot1 10.6s linear 1.4s infinite both; }
 .edu-wrap.visible .edu-item:nth-child(2) .edu-dot { animation: eduDot2 10.6s linear 1.4s infinite both; }
 .edu-wrap.visible .edu-item:nth-child(3) .edu-dot { animation: eduDot3 10.6s linear 1.4s infinite both; }
-.edu-wrap.visible .edu-item:nth-child(1)::before { animation: eduLine1 10.6s linear 1.4s infinite both; }
-.edu-wrap.visible .edu-item:nth-child(2)::before { animation: eduLine2 10.6s linear 1.4s infinite both; }
+.edu-wrap.visible .edu-item:nth-child(1)::before { animation: eduLineY1 10.6s linear 1.4s infinite both; }
+.edu-wrap.visible .edu-item:nth-child(2)::before { animation: eduLineY2 10.6s linear 1.4s infinite both; }
 
 @keyframes eduFade {
   0%, 94.34% { opacity: 1; }
@@ -86,10 +87,11 @@
   97.74%, 100% { transform: scaleY(0); background: var(--teal); }
 }
 
-@media (max-width: 820px) {
-  .edu-item::before { transform: scaleY(0); transform-origin: top center; }
-  .edu-wrap.visible .edu-item:nth-child(1)::before { animation: eduLineY1 10.6s linear 1.4s infinite both; }
-  .edu-wrap.visible .edu-item:nth-child(2)::before { animation: eduLineY2 10.6s linear 1.4s infinite both; }
+/* tablet landscape and up: the line runs left-to-right */
+@media (min-width: 51.3125rem) {
+  .edu-item::before { transform: scaleX(0); transform-origin: left center; }
+  .edu-wrap.visible .edu-item:nth-child(1)::before { animation: eduLine1 10.6s linear 1.4s infinite both; }
+  .edu-wrap.visible .edu-item:nth-child(2)::before { animation: eduLine2 10.6s linear 1.4s infinite both; }
 }
 
 /* 2) kerby.info: row highlight on hover */
